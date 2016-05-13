@@ -188,15 +188,25 @@ def open_dataset(filename_or_obj, group=None, decode_cf=True,
         store = filename_or_obj
     elif isinstance(filename_or_obj, basestring):
         if filename_or_obj.endswith('.gz'):
-            if engine is not None and engine != 'scipy':
-                raise ValueError('can only read gzipped netCDF files with '
-                                 "default engine or engine='scipy'")
-            # if the string ends with .gz, then gunzip and open as netcdf file
+            if is_remote_uri(filename_or_obj):
+                if engine !='netcdf4' and engine !='pydap':
+                   raise ValueError('can only read remote gzipped netCDF files '
+                                     "with engine='netcdf4' or 'pydap'")
+            else:
+                if engine is not None and engine != 'scipy':
+                   raise ValueError('can only read gzipped netCDF files with '
+                                     "default engine, engine='scipy'")
+                # if the string ends with .gz, then gunzip and open as netcdf file
             if sys.version_info[:2] < (2, 7):
                 raise ValueError('reading a gzipped netCDF not '
                                  'supported on Python 2.6')
             try:
-                store = backends.ScipyDataStore(gzip.open(filename_or_obj))
+                if engine == 'netcdf4':
+                    store = backends.NetCDF4DataStore(filename_or_obj, group=group)
+                elif engine == 'pydap':
+                    store = backends.PydapDataStore(filename_or_obj)
+                else:
+                    store = backends.ScipyDataStore(gzip.open(filename_or_obj))
             except TypeError as e:
                 # TODO: gzipped loading only works with NetCDF3 files.
                 if 'is not a valid NetCDF 3 file' in e.message:
