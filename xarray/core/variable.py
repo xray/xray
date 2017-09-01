@@ -1240,11 +1240,41 @@ class IndexVariable(Variable):
     def __setitem__(self, key, value):
         raise TypeError('%s values cannot be modified' % type(self).__name__)
 
+
+    @classmethod
+    def _concat_pandas(cls, variables, positions=None):
+        """
+        Concatenates variables. This is generic function that
+        handles cases where numpy.concatenate will not work
+
+        Parameters
+        ----------
+        :param variables: list of variables to concatenate
+
+        Returns
+        -------
+        Concatenated variables
+        """
+        indexes = [v._data.array for v in variables]
+
+        if not indexes:
+            data = []
+        else:
+
+            data = indexes[0].append(indexes[1:])
+
+            if positions is not None:
+                indices = nputils.inverse_permutation(
+                    np.concatenate(positions))
+                data = data.take(indices)
+
+        return data
+
     @classmethod
     def concat(cls, variables, dim='concat_dim', positions=None,
                shortcut=False):
-        """Specialized version of Variable.concat for IndexVariable objects.
-
+        """Specialized version of Variable.concat for
+        IndexVariable objects.
         This exists because we want to avoid converting Index objects to NumPy
         arrays, if possible.
         """
@@ -1252,23 +1282,20 @@ class IndexVariable(Variable):
             dim, = dim.dims
 
         variables = list(variables)
+
         first_var = variables[0]
 
         if any(not isinstance(v, cls) for v in variables):
             raise TypeError('IndexVariable.concat requires that all input '
                             'variables be IndexVariable objects')
 
-        indexes = [v._data.array for v in variables]
-
-        if not indexes:
-            data = []
+        # GH1434
+        # Fixes bug: "xr.concat loses coordinate dtype
+        # information with recarrays in 0.9"
+        if any(var.dtype == np.object for var in variables):
+            data = cls._concat_pandas(variables, positions)
         else:
-            data = indexes[0].append(indexes[1:])
-
-            if positions is not None:
-                indices = nputils.inverse_permutation(
-                    np.concatenate(positions))
-                data = data.take(indices)
+            data = np.concatenate([v.data for v in variables])
 
         attrs = OrderedDict(first_var.attrs)
         if not shortcut:

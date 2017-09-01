@@ -350,6 +350,14 @@ def reindex_variables(variables, sizes, indexes, indexers, method=None,
     def var_indexers(var, indexers):
         return tuple(indexers.get(d, slice(None)) for d in var.dims)
 
+    def is_composite_dtype(dtype):
+        """
+        Detects composite dtype dtype e.g. dtype of the structured numpy array
+        :param dtype: numpy.dtype
+        :return: bool
+        """
+        return dtype.fields is not None
+
     # create variables for the new dataset
     reindexed = OrderedDict()
 
@@ -359,7 +367,15 @@ def reindex_variables(variables, sizes, indexes, indexers, method=None,
             args = (var.attrs, var.encoding)
         else:
             args = ()
-        reindexed[dim] = IndexVariable((dim,), indexers[dim], *args)
+
+        idx_var = IndexVariable((dim,), indexers[dim], *args)
+
+        # GH1434
+        # ensures that dtype of numpy structured arrays is preserved
+        if len(args) and is_composite_dtype(var.dtype) \
+                and idx_var.dtype != var.dtype:
+            idx_var.data = idx_var.data.astype(var.dtype)
+        reindexed[dim] = idx_var
 
     for name, var in iteritems(variables):
         if name not in indexers:
@@ -403,7 +419,13 @@ def reindex_variables(variables, sizes, indexes, indexers, method=None,
                 # we neither created a new ndarray nor used fancy indexing
                 new_var = var.copy(deep=copy)
 
+            # GH1434
+            # ensures that dtype of numpy structured arrays is preserved
+            if is_composite_dtype(var.dtype) \
+                    and new_var.dtype != indexes._variables[name].dtype:
+                new_var = new_var.astype(indexes._variables[name].dtype)
             reindexed[name] = new_var
+
     return reindexed
 
 
