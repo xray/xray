@@ -15,35 +15,56 @@ from ..core import indexing
 from ..core.combine import auto_combine
 from ..core.utils import close_on_error, is_remote_uri
 from ..core.pycompat import basestring, path_type
+from ..core.options import OPTIONS
 
 DATAARRAY_NAME = '__xarray_dataarray_name__'
 DATAARRAY_VARIABLE = '__xarray_dataarray_variable__'
 
 
+def _guess_file_format(path):
+    """Make an educated guess about the file format based on the first few
+    bytes.
+
+    If the file does not exist, assume netcdf3.
+    """
+    try:
+        f = open(path, 'rb')
+    except IOError:
+        return 'netcdf3'
+
+    with f:
+        # First ten bytes should be enough...
+        sig = f.read(10)
+
+    if sig[:8] == b'\x89HDF\x0d\x0a\x1a\x0a':
+        return 'hdf5'
+    elif sig[:4] == b'CDF\x02' or sig[:4] == b'CDF\x01':
+        return 'netcdf3'
+    else:
+        return 'unknown'
+
+
 def _get_default_engine(path, allow_remote=False):
     if allow_remote and is_remote_uri(path):  # pragma: no cover
-        try:
-            import netCDF4
-            engine = 'netcdf4'
-        except ImportError:
-            try:
-                import pydap
-                engine = 'pydap'
-            except ImportError:
-                raise ValueError('netCDF4 or pydap is required for accessing '
-                                 'remote datasets via OPeNDAP')
+        for engine in OPTIONS['io_engines']:
+            if engine in ('netcdf4', 'pydap'):
+                return engine
+        else:
+            raise ValueError('netCDF4 or pydap is required for accessing '
+                             'remote datasets via OPeNDAP')
     else:
-        try:
-            import netCDF4
-            engine = 'netcdf4'
-        except ImportError:  # pragma: no cover
-            try:
-                import scipy.io.netcdf
-                engine = 'scipy'
-            except ImportError:
-                raise ValueError('cannot read or write netCDF files without '
-                                 'netCDF4-python or scipy installed')
-    return engine
+        file_format = _guess_file_format(path)
+        for engine in OPTIONS['io_engines']:
+            if file_format == 'hdf5' and engine in ('netcdf4', 'h5netcdf'):
+                return engine
+            elif file_format == 'netcdf3' and engine in ('netcdf4', 'scipy'):
+                return engine
+            elif file_format == 'unknown':
+                raise ValueError('{}: File format not supported'.format(path))
+        else:
+            raise ValueError(
+                'cannot read or write netCDF files with available I/O engines '
+                '{}'.format(OPTIONS['io_engines']))
 
 
 def _normalize_path(path):

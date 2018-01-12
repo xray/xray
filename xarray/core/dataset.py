@@ -1127,6 +1127,7 @@ class Dataset(Mapping, ImplementsDatasetReduce, BaseDataObject,
         """
         if encoding is None:
             encoding = {}
+
         from ..backends.api import to_netcdf
         return to_netcdf(self, path, mode, format=format, group=group,
                          engine=engine, encoding=encoding,
