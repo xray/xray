@@ -114,6 +114,63 @@ def as_variable(obj, name=None):
     return obj
 
 
+def maybe_expand_multiindex(obj, name):
+    """Expand an object into one or more Variable objects.
+
+    Parameters
+    ----------
+    obj : object
+        Object to convert into a variable or variables. Like the obj argument
+        to as_variable(), but if data is a MultiIndex, each level is extracted
+        as a separate IndexVariable.
+    name : any
+        Name of this object, when used as a key in a dictionary. This is used
+        to set a default dimension name.
+
+    Returns
+    -------
+    OrderedDict with a single Variable/IndexVariable value or multiple
+    IndexVariable values (keyed by level name) if input data is a MultiIndex.
+
+    Examples
+    --------
+    >>> as_variables_with_multiindex_expansion([1, 2, 3], name='x')
+    OrderedDict([('x', IndexVariable(('x',), array([1, 2, 3])))])
+
+    >>> as_variables_with_multiindex_expansion(('y', [1, 2, 3]), name='x')
+    OrderedDict([('x', Variable(('y',), array([1, 2, 3])))])
+
+    >>> idx = pd.MultiIndex.from_tuples([('a', 1), ('b', 2)], names=['y', 'z'])
+    >>> as_variables_with_multiindex_expansion(idx, name='x')
+    OrderedDict([('y', Variable(('x',), array(['a', 'b']))),
+                 ('z', Variable(('x',), array([1, 2])))])
+    """
+    tuple_with_multiindex = (isinstance(obj, tuple) and len(obj) > 1 and
+                             isinstance(obj[1], pd.MultiIndex))
+    if tuple_with_multiindex or isinstance(obj, pd.MultiIndex):
+        if isinstance(obj, tuple):
+            dims, index = obj[:2]
+        else:
+            dims = (name,)
+            index = obj
+        if any(level_name is None for level_name in index.names):
+            raise ValueError(
+                'cannot convert a MultiIndex with unknown level names {} into '
+                'xarray variables: {}'.format(index.names, index))
+        if len(set(index.names)) != len(index.names):
+            raise ValueError(
+                'cannot convert a MultiIndex with non-unique level names {} '
+                'into xarray variables: {}'.format(index.names, index))
+        multiindex_vars = OrderedDict()
+        for level_name in index.names:
+            multiindex_vars[level_name] = Variable(
+                dims, index.get_level_values(level_name))
+    else:
+        multiindex_vars = None
+
+    return multiindex_vars
+
+
 def _maybe_wrap_data(data):
     """
     Put pandas.Index and numpy.ndarray arguments in adapter objects to ensure

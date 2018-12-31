@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 from collections import Mapping
 from contextlib import contextmanager
 
+import numpy as np
 import pandas as pd
 
 from . import formatting, indexing

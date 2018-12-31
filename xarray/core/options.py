@@ -20,7 +20,7 @@ OPTIONS = {
     WARN_FOR_UNCLOSED_FILES: False,
     CMAP_SEQUENTIAL: 'viridis',
     CMAP_DIVERGENT: 'RdBu_r',
-    KEEP_ATTRS: 'default'
+    KEEP_ATTRS: 'default',
 }
 
 _JOIN_OPTIONS = frozenset(['inner', 'outer', 'left', 'right', 'exact'])
