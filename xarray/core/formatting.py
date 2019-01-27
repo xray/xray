@@ -248,7 +248,7 @@ def summarize_datavar(name, var, col_width):
 
 
 def summarize_coord(name, var, col_width):
-    is_index = name in var.dims
+    is_index = name in var.dims and var.ndim==1
     show_values = var._in_memory
     marker = '*' if is_index else ' '
     if is_index:

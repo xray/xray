@@ -58,6 +58,11 @@ def create_test_multiindex():
     return Dataset({}, {'x': mindex})
 
 
+def create_test_multidim_coord_no_index():
+    ds = xr.Dataset({'a': ('x', [1, 1]),
+                     'x': (['x', 'y'], [[1, 1, 1, 1], [2, 2, 2, 2]])})
+    return ds
+
 class InaccessibleVariableDataStore(backends.InMemoryDataStore):
     def __init__(self):
         super(InaccessibleVariableDataStore, self).__init__()
@@ -174,6 +179,11 @@ class TestDataset(object):
         # check that creating the repr doesn't raise an error #GH645
         repr(data)
 
+    def test_repr_no_index_on_multidim_coord(self):
+        data = create_test_multidim_coord_no_index()
+        actual = repr(data)
+        assert '*' not in actual
+
     def test_unicode_data(self):
         # regression test for GH834
         data = Dataset({'foø': ['ba®']}, attrs={'å': '∑'})
@@ -235,8 +245,9 @@ class TestDataset(object):
 
         with raises_regex(ValueError, 'conflicting sizes'):
             Dataset({'a': x1, 'b': x2})
-        with raises_regex(ValueError, "disallows such variables"):
-            Dataset({'a': x1, 'x': z})
+        # these are now allowed -- let's add a more explicit test
+        #with raises_regex(ValueError, "disallows such variables"):
+        #    Dataset({'a': x1, 'x': z})
         with raises_regex(TypeError, 'tuple of form'):
             Dataset({'x': (1, 2, 3, 4, 5, 6, 7)})
         with raises_regex(ValueError, 'already exists as a scalar'):
@@ -246,6 +257,17 @@ class TestDataset(object):
         expected = Dataset({'x': x1, 'z': z})
         actual = Dataset({'z': expected['z']})
         assert_identical(expected, actual)
+
+    def test_constructor_multidim_dimensions(self):
+        # checks related to GH2368, GH2233
+        ds = create_test_multidim_coord_no_index()
+
+        # dataset should have no indices
+        assert not isinstance(ds.variables['x'], IndexVariable)
+        assert len(ds.indexes) == 0
+        assert 'x' not in ds.indexes
+        with pytest.raises(KeyError):
+            ds.indexes['x']
 
     def test_constructor_invalid_dims(self):
         # regression for GH1120

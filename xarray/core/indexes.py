@@ -48,4 +48,4 @@ def default_indexes(coords, dims):
     to indexes used for indexing along that dimension.
     """
     return OrderedDict((key, coords[key].to_index())
-                       for key in dims if key in coords)
+                       for key in dims if key in coords and coords[key].ndim==1)
