@@ -580,7 +580,7 @@ class DataArrayGroupBy(GroupBy, ImplementsArrayReduce):
         return combined
 
     def reduce(self, func, dim=None, axis=None,
-               keep_attrs=None, shortcut=True, **kwargs):
+               keep_attrs=None, shortcut=False, **kwargs):
         """Reduce the items in this group by applying `func` along some
         dimension(s).
 

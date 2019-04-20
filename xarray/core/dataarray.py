@@ -68,8 +68,16 @@ def _infer_coords_and_dims(shape, coords, dims):
             var.dims = (dim,)
             new_coords[dim] = var
 
+    _check_shape_consistency(shape, new_coords, dims)
+    assert_unique_multiindex_level_names(new_coords)
+
+    return new_coords, dims
+
+
+def _check_shape_consistency(shape, coords, dims):
+    # moved from _infer_coords_and_dims
     sizes = dict(zip(dims, shape))
-    for k, v in new_coords.items():
+    for k, v in coords.items():
         if any(d not in dims for d in v.dims):
             raise ValueError('coordinate %s has dimensions %s, but these '
                              'are not a subset of the DataArray '
@@ -87,9 +95,6 @@ def _infer_coords_and_dims(shape, coords, dims):
                              'matching the dimension size'
                              % (k, v.shape, (sizes[k],)))
 
-    assert_unique_multiindex_level_names(new_coords)
-
-    return new_coords, dims
 
 
 class _LocIndexer(object):
@@ -230,6 +235,8 @@ class DataArray(AbstractArray, DataWithCoords):
             data = as_compatible_data(data)
             coords, dims = _infer_coords_and_dims(data.shape, coords, dims)
             variable = Variable(dims, data, attrs, encoding, fastpath=True)
+            # check shape consistency
+            _check_shape_consistency(variable.shape, coords, variable.dims)
 
         # These fully describe a DataArray
         self._variable = variable
@@ -1982,8 +1989,10 @@ class DataArray(AbstractArray, DataWithCoords):
         else:
             return None
 
-    def __array_wrap__(self, obj, context=None):
+    def __array_wrap__(self, obj, context=None, fastpath=False):
         new_var = self.variable.__array_wrap__(obj, context)
+        if not fastpath:
+            _check_shape_consistency(new_var.shape, self._coords, new_var.dims)
         return self._replace(new_var)
 
     @staticmethod
@@ -1992,7 +2001,7 @@ class DataArray(AbstractArray, DataWithCoords):
         def func(self, *args, **kwargs):
             with np.errstate(all='ignore'):
                 return self.__array_wrap__(f(self.variable.data, *args,
-                                             **kwargs))
+                                             **kwargs), fastpath=True)
 
         return func
 

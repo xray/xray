@@ -1751,15 +1751,16 @@ class Variable(common.AbstractArray, arithmetic.SupportsArithmetic,
     def imag(self):
         return type(self)(self.dims, self.data.imag, self._attrs)
 
-    def __array_wrap__(self, obj, context=None):
-        return Variable(self.dims, obj)
+    def __array_wrap__(self, obj, context=None, fastpath=False):
+        return Variable(self.dims, obj, fastpath=fastpath)
 
     @staticmethod
     def _unary_op(f):
         @functools.wraps(f)
         def func(self, *args, **kwargs):
             with np.errstate(all='ignore'):
-                return self.__array_wrap__(f(self.data, *args, **kwargs))
+                return self.__array_wrap__(f(self.data, *args, **kwargs),
+                                           fastpath=True)
         return func
 
     @staticmethod
