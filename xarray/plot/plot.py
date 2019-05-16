@@ -13,91 +13,15 @@ import pandas as pd
 from .facetgrid import _easy_facetgrid
 from .utils import (
     _add_colorbar, _ensure_plottable, _infer_interval_breaks, _infer_xy_labels,
-    _interval_to_double_bound_points, _interval_to_mid_points,
-    _process_cmap_cbar_kwargs, _rescale_imshow_rgb, _resolve_intervals_2dplot,
-    _update_axes, _valid_other_type, get_axis, import_matplotlib_pyplot,
-    label_from_attrs)
-
-
-def _infer_line_data(darray, x, y, hue):
-    error_msg = ('must be either None or one of ({0:s})'
-                 .format(', '.join([repr(dd) for dd in darray.dims])))
-    ndims = len(darray.dims)
-
-    if x is not None and x not in darray.dims and x not in darray.coords:
-        raise ValueError('x ' + error_msg)
-
-    if y is not None and y not in darray.dims and y not in darray.coords:
-        raise ValueError('y ' + error_msg)
-
-    if x is not None and y is not None:
-        raise ValueError('You cannot specify both x and y kwargs'
-                         'for line plots.')
-
-    if ndims == 1:
-        huename = None
-        hueplt = None
-        huelabel = ''
-
-        if x is not None:
-            xplt = darray[x]
-            yplt = darray
-
-        elif y is not None:
-            xplt = darray
-            yplt = darray[y]
-
-        else:  # Both x & y are None
-            dim = darray.dims[0]
-            xplt = darray[dim]
-            yplt = darray
-
-    else:
-        if x is None and y is None and hue is None:
-            raise ValueError('For 2D inputs, please'
-                             'specify either hue, x or y.')
-
-        if y is None:
-            xname, huename = _infer_xy_labels(darray=darray, x=x, y=hue)
-            xplt = darray[xname]
-            if xplt.ndim > 1:
-                if huename in darray.dims:
-                    otherindex = 1 if darray.dims.index(huename) == 0 else 0
-                    otherdim = darray.dims[otherindex]
-                    yplt = darray.transpose(otherdim, huename)
-                    xplt = xplt.transpose(otherdim, huename)
-                else:
-                    raise ValueError('For 2D inputs, hue must be a dimension'
-                                     + ' i.e. one of ' + repr(darray.dims))
-
-            else:
-                yplt = darray.transpose(xname, huename)
-
-        else:
-            yname, huename = _infer_xy_labels(darray=darray, x=y, y=hue)
-            yplt = darray[yname]
-            if yplt.ndim > 1:
-                if huename in darray.dims:
-                    otherindex = 1 if darray.dims.index(huename) == 0 else 0
-                    xplt = darray.transpose(otherdim, huename)
-                else:
-                    raise ValueError('For 2D inputs, hue must be a dimension'
-                                     + ' i.e. one of ' + repr(darray.dims))
-
-            else:
-                xplt = darray.transpose(yname, huename)
-
-        huelabel = label_from_attrs(darray[huename])
-        hueplt = darray[huename]
-
-    xlabel = label_from_attrs(xplt)
-    ylabel = label_from_attrs(yplt)
-
-    return xplt, yplt, hueplt, xlabel, ylabel, huelabel
+    _infer_line_data, _process_cmap_cbar_kwargs, _rescale_imshow_rgb,
+    _resolve_intervals_2dplot,
+    _update_axes, get_axis, import_matplotlib_pyplot,
+    label_from_attrs, _rotate_date_xlabels, _check_animate,
+    _transpose_before_animation, _infer_plot_type)
 
 
 def plot(darray, row=None, col=None, col_wrap=None, ax=None, hue=None,
-         rtol=0.01, subplot_kws=None, **kwargs):
+         rtol=0.01, animate=None, subplot_kws=None, **kwargs):
     """
     Default plot of DataArray using matplotlib.pyplot.
 
@@ -123,6 +47,11 @@ def plot(darray, row=None, col=None, col_wrap=None, ax=None, hue=None,
         If passed, make faceted line plots with hue on this dimension name
     col_wrap : integer, optional
         Use together with ``col`` to wrap faceted plots
+    animate: str, optional
+        Dimension or coord in the DataArray over which to animate. If this
+        argument is supplied then ``animatplot`` will be used to animate the
+        corresponding plot. The DataArray must have 1 more dimension than
+        specified in the table above.
     ax : matplotlib axes, optional
         If None, uses the current axis. Not applicable when using facets.
     rtol : number, optional
@@ -135,41 +64,9 @@ def plot(darray, row=None, col=None, col_wrap=None, ax=None, hue=None,
         Additional keyword arguments to matplotlib
 
     """
-    darray = darray.squeeze()
-
-    plot_dims = set(darray.dims)
-    plot_dims.discard(row)
-    plot_dims.discard(col)
-    plot_dims.discard(hue)
-
-    ndims = len(plot_dims)
-
-    error_msg = ('Only 1d and 2d plots are supported for facets in xarray. '
-                 'See the package `Seaborn` for more options.')
-
-    if ndims in [1, 2]:
-        if row or col:
-            kwargs['row'] = row
-            kwargs['col'] = col
-            kwargs['col_wrap'] = col_wrap
-            kwargs['subplot_kws'] = subplot_kws
-        if ndims == 1:
-            plotfunc = line
-            kwargs['hue'] = hue
-        elif ndims == 2:
-            if hue:
-                plotfunc = line
-                kwargs['hue'] = hue
-            else:
-                plotfunc = pcolormesh
-    else:
-        if row or col or hue:
-            raise ValueError(error_msg)
-        plotfunc = hist
-
-    kwargs['ax'] = ax
-
-    return plotfunc(darray, **kwargs)
+    return _infer_plot_type(darray, row=row, col=col, col_wrap=col_wrap,
+                            ax=ax, hue=hue, rtol=rtol, animate=animate,
+                            subplot_kws=subplot_kws, **kwargs)
 
 
 # This function signature should not change so that it can use
@@ -183,7 +80,8 @@ def line(darray, *args, **kwargs):
     Parameters
     ----------
     darray : DataArray
-        Must be 1 dimensional
+        Must be 1 dimensional, unless ``animate`` is specified, in which case
+        it must be 2 dimensional.
     figsize : tuple, optional
         A tuple (width, height) of the figure in inches.
         Mutually exclusive with ``size`` and ``ax``.
@@ -199,6 +97,10 @@ def line(darray, *args, **kwargs):
     hue : string, optional
         Dimension or coordinate for which you want multiple lines plotted.
         If plotting against a 2D coordinate, ``hue`` must be a dimension.
+    animate: str, optional
+        Dimension or coord in the DataArray over which to animate. If this
+        argument is supplied then this function will redirect to
+        ``xarray.animate.animate_line``.
     x, y : string, optional
         Dimensions or coordinates for x, y axis.
         Only one of these may be specified.
@@ -221,10 +123,19 @@ def line(darray, *args, **kwargs):
 
     """
 
+    animate = kwargs.pop('animate', None)
+    if animate is not None:
+        animate_dim = _check_animate(darray, animate)
+        darray = _transpose_before_animation(darray, animate)
+        from .animate import line as animate_line
+        return animate_line(darray, animate=animate, **kwargs)
+
     # Handle facetgrids first
     row = kwargs.pop('row', None)
     col = kwargs.pop('col', None)
     if row or col:
+        if animate is not None:
+            raise NotImplementedError
         allargs = locals().copy()
         allargs.update(allargs.pop('kwargs'))
         allargs.pop('darray')
@@ -244,6 +155,7 @@ def line(darray, *args, **kwargs):
     hue = kwargs.pop('hue', None)
     x = kwargs.pop('x', None)
     y = kwargs.pop('y', None)
+    linestyle = kwargs.get('linestyle', '')
     xincrease = kwargs.pop('xincrease', None)  # default needs to be None
     yincrease = kwargs.pop('yincrease', None)
     xscale = kwargs.pop('xscale', None)  # default needs to be None
@@ -258,29 +170,8 @@ def line(darray, *args, **kwargs):
         args = kwargs.pop('args', ())
 
     ax = get_axis(figsize, size, aspect, ax)
-    xplt, yplt, hueplt, xlabel, ylabel, huelabel = \
-        _infer_line_data(darray, x, y, hue)
-
-    # Remove pd.Intervals if contained in xplt.values.
-    if _valid_other_type(xplt.values, [pd.Interval]):
-        # Is it a step plot? (see matplotlib.Axes.step)
-        if kwargs.get('linestyle', '').startswith('steps-'):
-            xplt_val, yplt_val = _interval_to_double_bound_points(xplt.values,
-                                                                  yplt.values)
-            # Remove steps-* to be sure that matplotlib is not confused
-            kwargs['linestyle'] = (kwargs['linestyle']
-                                   .replace('steps-pre', '')
-                                   .replace('steps-post', '')
-                                   .replace('steps-mid', ''))
-            if kwargs['linestyle'] == '':
-                kwargs.pop('linestyle')
-        else:
-            xplt_val = _interval_to_mid_points(xplt.values)
-            yplt_val = yplt.values
-            xlabel += '_center'
-    else:
-        xplt_val = xplt.values
-        yplt_val = yplt.values
+    xplt_val, yplt_val, hueplt, xlabel, ylabel, huelabel = \
+        _infer_line_data(darray, x, y, hue, animate, linestyle)
 
     _ensure_plottable(xplt_val, yplt_val)
 
@@ -295,19 +186,12 @@ def line(darray, *args, **kwargs):
 
         ax.set_title(darray._title_for_slice())
 
-    if darray.ndim == 2 and add_legend:
+    if ndims == 2 and add_legend:
         ax.legend(handles=primitive,
                   labels=list(hueplt.values),
                   title=huelabel)
 
-    # Rotate dates on xlabels
-    # Do this without calling autofmt_xdate so that x-axes ticks
-    # on other subplots (if any) are not deleted.
-    # https://stackoverflow.com/questions/17430105/autofmt-xdate-deletes-x-axis-labels-of-all-subplots
-    if np.issubdtype(xplt.dtype, np.datetime64):
-        for xlabels in ax.get_xticklabels():
-            xlabels.set_rotation(30)
-            xlabels.set_ha('right')
+    _rotate_date_xlabels(xplt_val, ax)
 
     _update_axes(ax, xincrease, yincrease, xscale, yscale,
                  xticks, yticks, xlim, ylim)
