@@ -30,7 +30,6 @@ class AlwaysLessThan:
 INF = AlwaysGreaterThan()
 NINF = AlwaysLessThan()
 
-
 # Pairs of types that, if both found, should be promoted to object dtype
 # instead of following NumPy's own type-promotion rules. These type promotion
 # rules match pandas instead. For reference, see the NumPy type hierarchy:

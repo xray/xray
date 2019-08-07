@@ -71,3 +71,4 @@ xarray/version.py
 Icon*
 
 .ipynb_checkpoints
+.nfs*
