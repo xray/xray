@@ -290,7 +290,16 @@ def _set_nc_attribute(obj, key, value):
             )
             raise AttributeError(msg)
     else:
-        obj.setncattr(key, value)
+        try:
+            obj.setncattr(key, value)
+        except AttributeError:
+            msg = ('Failed to write attribute {!r} with value '
+                   '{!r}'.format(key, value))
+            var_name = getattr(obj, 'name', None)
+            if var_name is not None:
+                msg += ' on variable {!r}'.format(var_name)
+            msg += ' in a NetCDF file.'
+            raise AttributeError(msg)
 
 
 class NetCDF4DataStore(WritableCFDataStore):
