@@ -2,6 +2,7 @@ import pandas as pd
 
 from . import dtypes, utils
 from .alignment import align
+from .common import full_like
 from .duck_array_ops import lazy_array_equiv
 from .merge import _VALID_COMPAT, unique_variable
 from .variable import IndexVariable, Variable, as_variable
@@ -77,7 +78,8 @@ def concat(
         to assign each dataset along the concatenated dimension. If not
         supplied, objects are concatenated in the provided order.
     fill_value : scalar, optional
-        Value to use for newly missing values
+        Value to use for newly missing values as well as to fill values where the
+        variable is not present in all datasets.
     join : {'outer', 'inner', 'left', 'right', 'exact'}, optional
         String indicating how to combine differing indexes
         (excluding dim) in objects
@@ -370,10 +372,29 @@ def _dataset_concat(
     # n.b. this loop preserves variable order, needed for groupby.
     for k in datasets[0].variables:
         if k in concat_over:
-            try:
-                vars = ensure_common_dims([ds.variables[k] for ds in datasets])
-            except KeyError:
-                raise ValueError("%r is not present in all datasets." % k)
+            variables = []
+            for ds in datasets:
+                # if one of the variables doesn't exist find one which does
+                # and use it to create a fill value
+                if k not in ds.variables:
+                    for ds in datasets:
+                        if k in ds.variables:
+                            # found one to use as a fill value, fill with fill_value
+                            if fill_value is dtypes.NA:
+                                dtype, fill_value = dtypes.maybe_promote(
+                                    ds.variables[k].dtype
+                                )
+                            else:
+                                dtype = ds.variables[k].dtype
+
+                            filled = full_like(
+                                ds.variables[k], fill_value=fill_value, dtype=dtype
+                            )
+                            break
+                    variables.append(filled)
+                else:
+                    variables.append(ds.variables[k])
+            vars = ensure_common_dims(variables)
             combined = concat_vars(vars, dim, positions)
             assert isinstance(combined, Variable)
             result_vars[k] = combined

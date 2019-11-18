@@ -35,17 +35,28 @@ def test_concat_compat():
         },
         coords={"x": [0, 1], "y": [1], "z": [-1, -2], "q": [0]},
     )
-
+    ds_concat = Dataset(
+        {
+            "has_x_y": (
+                ("q", "y", "x"),
+                [[[np.nan, np.nan], [3, 4]], [[1, 2], [np.nan, np.nan]]],
+            ),
+            "has_x": (("q", "x"), [[1, 2], [1, 2]]),
+            "no_x_y": (("q", "z"), [[1, 2], [1, 2]]),
+        },
+        coords={"x": [0, 1], "y": [0, 1], "z": [-1, -2], "q": [0, np.nan]},
+    )
     result = concat([ds1, ds2], dim="y", data_vars="minimal", compat="broadcast_equals")
     assert_equal(ds2.no_x_y, result.no_x_y.transpose())
 
     for var in ["has_x", "no_x_y"]:
         assert "y" not in result[var]
 
+    result2 = concat([ds2, ds1], dim="q")
+    assert_equal(ds_concat, result2)
+
     with raises_regex(ValueError, "coordinates in some datasets but not others"):
         concat([ds1, ds2], dim="q")
-    with raises_regex(ValueError, "'q' is not present in all datasets"):
-        concat([ds2, ds1], dim="q")
 
 
 class TestConcatDataset:
@@ -327,16 +338,28 @@ class TestConcatDataset:
             Dataset({"a": ("x", [2, 3]), "x": [1, 2]}),
             Dataset({"a": ("x", [1, 2]), "x": [0, 1]}),
         ]
+
         if fill_value == dtypes.NA:
             # if we supply the default, we expect the missing value for a
             # float array
-            fill_value = np.nan
+            fill_value_expected = np.nan
+        else:
+            fill_value_expected = fill_value
+
         expected = Dataset(
-            {"a": (("t", "x"), [[fill_value, 2, 3], [1, 2, fill_value]])},
+            {
+                "a": (
+                    ("t", "x"),
+                    [[fill_value_expected, 2, 3], [1, 2, fill_value_expected]],
+                )
+            },
             {"x": [0, 1, 2]},
         )
         actual = concat(datasets, dim="t", fill_value=fill_value)
         assert_identical(actual, expected)
+
+        # check that the dtype is as expected
+        assert expected.a.dtype == type(fill_value_expected)
 
 
 class TestConcatDataArray:
