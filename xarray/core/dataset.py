@@ -78,8 +78,8 @@ from .utils import (
     Default,
     Frozen,
     SortedKeysDict,
-    _default,
     _check_inplace,
+    _default,
     decode_numpy_dict_values,
     either_dict_or_kwargs,
     hashable,
@@ -939,25 +939,6 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
         dims = calculate_dimensions(variables)
         return self._replace(
             variables, coord_names, dims, attrs, indexes, inplace=inplace
-        )
-
-    def _replace_vars_and_dims(
-        self,
-        variables: Dict[Hashable, Variable],
-        coord_names: set = None,
-        dims: Dict[Hashable, int] = None,
-        attrs: Union[Dict[Hashable, Any], None, Default] = _default,
-        inplace: bool = False,
-    ) -> "Dataset":
-        """Deprecated version of _replace_with_new_dims().
-
-        Unlike _replace_with_new_dims(), this method always recalculates
-        indexes from variables.
-        """
-        if dims is None:
-            dims = calculate_dimensions(variables)
-        return self._replace(
-            variables, coord_names, dims, attrs, indexes=None, inplace=inplace
         )
 
     def _overwrite_indexes(self, indexes: Mapping[Any, pd.Index]) -> "Dataset":
@@ -3024,11 +3005,11 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
                 # it will be promoted to a 1D coordinate with a single value.
                 variables[k] = v.set_dims(k).to_index_variable()
 
-        new_dims = self._dims.copy()
-        new_dims.update(dim)
-
-        return self._replace_vars_and_dims(
-            variables, dims=new_dims, coord_names=coord_names
+        return self._replace_with_new_dims(
+            # TODO: fix indexes, I think by passing nothing (i.e. default)
+            variables=variables,
+            coord_names=coord_names,
+            indexes=None,
         )
 
     def set_index(
@@ -3096,7 +3077,10 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
         variables, coord_names = merge_indexes(
             indexes, self._variables, self._coord_names, append=append
         )
-        return self._replace_vars_and_dims(variables, coord_names=coord_names)
+        # TODO: fix indexes, I think by passing nothing (i.e. default)
+        return self._replace_with_new_dims(
+            variables, coord_names=coord_names, indexes=None
+        )
 
     def reset_index(
         self,
@@ -3132,7 +3116,10 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
             cast(Mapping[Hashable, Hashable], self._level_coords),
             drop=drop,
         )
-        return self._replace_vars_and_dims(variables, coord_names=coord_names)
+        # TODO: fix indexes, I think by passing nothing (i.e. default)
+        return self._replace_with_new_dims(
+            variables, coord_names=coord_names, indexes=None
+        )
 
     def reorder_levels(
         self,
