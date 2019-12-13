@@ -141,9 +141,9 @@ class Rolling:
 
 
 class DataArrayRolling(Rolling):
-    __slots__ = ("window_labels",)
+    __slots__ = ("window_labels", "stride")
 
-    def __init__(self, obj, windows, min_periods=None, center=False):
+    def __init__(self, obj, windows, min_periods=None, center=False, stride=1):
         """
         Moving window object for DataArray.
         You should use DataArray.rolling() method to construct this object
@@ -165,6 +165,8 @@ class DataArrayRolling(Rolling):
             setting min_periods equal to the size of the window.
         center : boolean, default False
             Set the labels at the center of the window.
+        stride : int, default 1
+            Stride of the moving window
 
         Returns
         -------
@@ -179,13 +181,25 @@ class DataArrayRolling(Rolling):
         """
         super().__init__(obj, windows, min_periods=min_periods, center=center)
 
-        self.window_labels = self.obj[self.dim]
+        if stride is None:
+            self.stride = 1
+        else:
+            self.stride = stride
+
+        window_labels = self.obj[self.dim]
+        self.window_labels = window_labels[:: self.stride]
 
     def __iter__(self):
-        stops = np.arange(1, len(self.window_labels) + 1)
+        stops = np.arange(1, len(self.window_labels) * self.stride + 1)
         starts = stops - int(self.window)
         starts[: int(self.window)] = 0
-        for (label, start, stop) in zip(self.window_labels, starts, stops):
+
+        # apply striding
+        stops = stops[:: self.stride]
+        starts = starts[:: self.stride]
+        window_labels = self.window_labels
+
+        for (label, start, stop) in zip(window_labels, starts, stops):
             window = self.obj.isel(**{self.dim: slice(start, stop)})
 
             counts = window.count(dim=self.dim)
@@ -193,7 +207,7 @@ class DataArrayRolling(Rolling):
 
             yield (label, window)
 
-    def construct(self, window_dim, stride=1, fill_value=dtypes.NA):
+    def construct(self, window_dim, stride=None, fill_value=dtypes.NA):
         """
         Convert this rolling object to xr.DataArray,
         where the window dimension is stacked as a new dimension
@@ -232,6 +246,9 @@ class DataArrayRolling(Rolling):
         """
 
         from .dataarray import DataArray
+
+        if stride is None:
+            stride = self.stride
 
         window = self.obj.variable.rolling_window(
             self.dim, self.window, window_dim, self.center, fill_value=fill_value
@@ -283,7 +300,7 @@ class DataArrayRolling(Rolling):
                [ 4.,  9., 15., 18.]])
         """
         rolling_dim = utils.get_temp_dimname(self.obj.dims, "_rolling_dim")
-        windows = self.construct(rolling_dim)
+        windows = self.construct(rolling_dim, stride=self.stride)
         result = windows.reduce(func, dim=rolling_dim, **kwargs)
 
         # Find valid windows based on count.
@@ -301,7 +318,7 @@ class DataArrayRolling(Rolling):
         counts = (
             self.obj.notnull()
             .rolling(center=self.center, **{self.dim: self.window})
-            .construct(rolling_dim, fill_value=False)
+            .construct(rolling_dim, fill_value=False, stride=self.stride)
             .sum(dim=rolling_dim, skipna=False)
         )
         return counts
@@ -347,7 +364,7 @@ class DataArrayRolling(Rolling):
             values = values[valid]
         result = DataArray(values, self.obj.coords)
 
-        return result
+        return result.isel(**{self.dim: slice(None, None, self.stride)})
 
     def _numpy_or_bottleneck_reduce(
         self, array_agg_func, bottleneck_move_func, **kwargs
@@ -372,9 +389,9 @@ class DataArrayRolling(Rolling):
 
 
 class DatasetRolling(Rolling):
-    __slots__ = ("rollings",)
+    __slots__ = ("rollings", "stride")
 
-    def __init__(self, obj, windows, min_periods=None, center=False):
+    def __init__(self, obj, windows, min_periods=None, center=False, stride=1):
         """
         Moving window object for Dataset.
         You should use Dataset.rolling() method to construct this object
@@ -396,6 +413,8 @@ class DatasetRolling(Rolling):
             setting min_periods equal to the size of the window.
         center : boolean, default False
             Set the labels at the center of the window.
+        stride : int, default 1
+            Stride of the moving window
 
         Returns
         -------
@@ -411,12 +430,15 @@ class DatasetRolling(Rolling):
         super().__init__(obj, windows, min_periods, center)
         if self.dim not in self.obj.dims:
             raise KeyError(self.dim)
+        self.stride = stride
         # Keep each Rolling object as a dictionary
         self.rollings = {}
         for key, da in self.obj.data_vars.items():
             # keeps rollings only for the dataset depending on slf.dim
             if self.dim in da.dims:
-                self.rollings[key] = DataArrayRolling(da, windows, min_periods, center)
+                self.rollings[key] = DataArrayRolling(
+                    da, windows, min_periods, center, stride=stride
+                )
 
     def _dataset_implementation(self, func, **kwargs):
         from .dataset import Dataset
@@ -427,7 +449,9 @@ class DatasetRolling(Rolling):
                 reduced[key] = func(self.rollings[key], **kwargs)
             else:
                 reduced[key] = self.obj[key]
-        return Dataset(reduced, coords=self.obj.coords)
+        return Dataset(reduced, coords=self.obj.coords).isel(
+            **{self.dim: slice(None, None, self.stride)}
+        )
 
     def reduce(self, func, **kwargs):
         """Reduce the items in this group by applying `func` along some
@@ -466,7 +490,7 @@ class DatasetRolling(Rolling):
             **kwargs,
         )
 
-    def construct(self, window_dim, stride=1, fill_value=dtypes.NA):
+    def construct(self, window_dim, stride=None, fill_value=dtypes.NA):
         """
         Convert this rolling object to xr.Dataset,
         where the window dimension is stacked as a new dimension
@@ -486,6 +510,9 @@ class DatasetRolling(Rolling):
         """
 
         from .dataset import Dataset
+
+        if stride is None:
+            stride = self.stride
 
         dataset = {}
         for key, da in self.obj.data_vars.items():

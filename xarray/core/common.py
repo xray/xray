@@ -742,6 +742,7 @@ class DataWithCoords(SupportsArithmetic, AttrAccessMixin):
         dim: Mapping[Hashable, int] = None,
         min_periods: int = None,
         center: bool = False,
+        stride: int = 1,
         **window_kwargs: int,
     ):
         """
@@ -758,6 +759,8 @@ class DataWithCoords(SupportsArithmetic, AttrAccessMixin):
             setting min_periods equal to the size of the window.
         center : boolean, default False
             Set the labels at the center of the window.
+        stride : int, default 1
+            Stride of the moving window
         **window_kwargs : optional
             The keyword arguments form of ``dim``.
             One of dim or window_kwargs must be provided.
@@ -800,7 +803,9 @@ class DataWithCoords(SupportsArithmetic, AttrAccessMixin):
         core.rolling.DatasetRolling
         """
         dim = either_dict_or_kwargs(dim, window_kwargs, "rolling")
-        return self._rolling_cls(self, dim, min_periods=min_periods, center=center)
+        return self._rolling_cls(
+            self, dim, min_periods=min_periods, center=center, stride=stride
+        )
 
     def rolling_exp(
         self,
