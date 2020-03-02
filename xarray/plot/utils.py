@@ -579,7 +579,6 @@ def _add_colorbar(primitive, ax, cbar_ax, cbar_kwargs, cmap_params):
         cbar_kwargs.setdefault("ax", ax)
     else:
         cbar_kwargs.setdefault("cax", cbar_ax)
-
     cbar = plt.colorbar(primitive, **cbar_kwargs)
 
     return cbar
@@ -776,3 +775,87 @@ def _process_cmap_cbar_kwargs(
     cmap_params = _determine_cmap_params(**cmap_kwargs)
 
     return cmap_params, cbar_kwargs
+
+
+_backends = {}
+
+
+def _find_backend(backend):
+    """
+    Find an xarray plotting backend
+
+    Parameters
+    ----------
+    backend : str
+        The identifier for the backend. Either an entrypoint item registered
+        with pkg_resources, or a module name.
+
+    Notes
+    -----
+    Modifies _backends with imported backends as a side effect.
+
+    Returns
+    -------
+    types.ModuleType
+        The imported backend.
+    """
+
+    import pkg_resources  # Delay import for performance.
+    import importlib
+
+    for entry_point in pkg_resources.iter_entry_points("xarray_plotting_backends"):
+        if entry_point.name == "matplotlib":
+            # matplotlib is an optional dependency. When
+            # missing, this would raise.
+            continue
+        _backends[entry_point.name] = entry_point.load()
+
+    try:
+        return _backends[backend]
+    except KeyError:
+        # Fall back to unregisted, module name approach.
+        try:
+            module = importlib.import_module(backend)
+        except ImportError:
+            # We re-raise later on.
+            pass
+
+        else:
+            if hasattr(module, "plot"):
+                # Validate that the interface is implemented when the option is set,
+                # rather than at plot time
+                _backends[backend] = module
+                return module
+    msg = (
+        "Could not find plotting backend '{name}'. Ensure that you've installed the "
+        "package providing the '{name}' entrypoint, or that the package has a"
+        "top-level `.plot` method."
+    )
+
+    raise ValueError(msg.format(name=backend))
+
+
+def _get_plot_backend(backend=None):
+    """
+    Return the plotting backend to use
+    """
+
+    backend = backend or OPTIONS["plotting_backend"]
+
+    if backend == "matplotlib":
+        try:
+            import xarray.plot as module
+        except ImportError:
+            raise ImportError(
+                "matplotlib is required for plotting when the "
+                'default backend "matplotlib" is selected.'
+            ) from None
+
+        _backends["matplotlib"] = module
+
+    if backend in _backends:
+        return _backends[backend]
+
+    module = _find_backend(backend)
+    _backends[backend] = module
+    return module

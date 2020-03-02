@@ -79,6 +79,8 @@ requires_scipy_or_netCDF4 = pytest.mark.skipif(
     not has_scipy_or_netCDF4, reason="requires scipy or netCDF4"
 )
 
+has_hvplot, requires_hvplot = _importorskip("hvplot")
+
 # change some global options for tests
 set_options(warn_for_unclosed_files=True)
 

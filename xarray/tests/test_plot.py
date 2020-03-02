@@ -24,6 +24,7 @@ from . import (
     has_nc_time_axis,
     raises_regex,
     requires_cftime,
+    requires_hvplot,
     requires_matplotlib,
     requires_nc_time_axis,
     requires_seaborn,
@@ -2277,3 +2278,13 @@ def test_plot_transposes_properly(plotfunc):
     # pcolormesh returns 1D array but imshow returns a 2D array so it is necessary
     # to ravel() on the LHS
     assert np.all(hdl.get_array().ravel() == da.to_masked_array().ravel())
+
+
+@requires_matplotlib
+@requires_hvplot
+@pytest.mark.parametrize("plotting_backend", ["matplotlib", "hvplot.plotting"])
+def test_plotting_backend(plotting_backend):
+    air = xr.tutorial.open_dataset("air_temperature").load().air
+
+    with xr.set_options(plotting_backend=plotting_backend):
+        air.isel(time=500).plot(add_colorbar=False)
