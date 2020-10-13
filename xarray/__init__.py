@@ -23,6 +23,7 @@ from .core.concat import concat
 from .core.dataarray import DataArray
 from .core.dataset import Dataset
 from .core.extensions import register_dataarray_accessor, register_dataset_accessor
+from .core.map import map
 from .core.merge import MergeError, merge
 from .core.options import set_options
 from .core.parallel import map_blocks
@@ -60,6 +61,7 @@ __all__ = (
     "infer_freq",
     "load_dataarray",
     "load_dataset",
+    "map",
     "map_blocks",
     "merge",
     "ones_like",
