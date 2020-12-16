@@ -140,7 +140,7 @@ def _infer_dtype(array, name=None):
         return np.dtype(float)
 
     native_dtypes = set(map(lambda x: type(x), array.flatten()))
-    if len(native_dtypes) > 1:
+    if len(native_dtypes) > 1 and native_dtypes != {bytes, str}:
         raise ValueError(
             "unable to infer dtype on variable {!r}; object array "
             "contains mixed native types: {}".format(
