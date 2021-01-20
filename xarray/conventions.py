@@ -130,9 +130,7 @@ def maybe_encode_bools(var):
 
 
 def _infer_dtype(array, name=None):
-    """Given an object array with no missing values, infer its dtype from its
-    first element
-    """
+    """Given an object array with no missing values, infer its dtype from all elements."""
     if array.dtype.kind != "O":
         raise TypeError("infer_type must be called on a dtype=object array")
 
