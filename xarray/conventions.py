@@ -631,7 +631,7 @@ def cf_decoder(
     concat_characters : bool
         Should character arrays be concatenated to strings, for
         example: ["h", "e", "l", "l", "o"] -> "hello"
-    mask_and_scale: bool
+    mask_and_scale : bool
         Lazily scale (using scale_factor and add_offset) and mask
         (using _FillValue).
     decode_times : bool
@@ -644,7 +644,7 @@ def cf_decoder(
     decoded_attributes : dict
         A dictionary mapping from attribute name to values.
 
-    See also
+    See Also
     --------
     decode_cf_variable
     """
@@ -754,7 +754,6 @@ def cf_encoder(variables, attributes):
     This includes masking, scaling, character array handling,
     and CF-time encoding.
 
-
     Parameters
     ----------
     variables : dict
@@ -769,7 +768,7 @@ def cf_encoder(variables, attributes):
     encoded_attributes : dict
         A dictionary mapping from attribute name to value
 
-    See also
+    See Also
     --------
     decode_cf_variable, encode_cf_variable
     """
