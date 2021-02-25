@@ -1509,6 +1509,10 @@ def where(cond, x, y):
         In priority order: Dataset, DataArray, Variable or array, whichever
         type appears as an input argument.
 
+    Notes
+    -----
+    Only the attrs on `cond` will be kept.
+
     Examples
     --------
     >>> import xarray as xr
@@ -1578,6 +1582,7 @@ def where(cond, x, y):
         join="exact",
         dataset_join="exact",
         dask="allowed",
+        keep_attrs=True,
     )
 
 

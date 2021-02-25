@@ -22,6 +22,7 @@ v0.17.0 (unreleased)
 
 Breaking changes
 ~~~~~~~~~~~~~~~~
+
 - xarray no longer supports python 3.6
 
   The minimum version policy was changed to also apply to projects with irregular
@@ -83,9 +84,11 @@ Deprecations
   like :py:meth:`dict.update`. It will be removed in version 0.19.0 (:pull:`4932`).
   By `Justus Magin <https://github.com/keewis>`_.
 
-
 New Features
 ~~~~~~~~~~~~
+
+- ``keep_attrs`` support for :py:func:`where` (:issue:`4141`, :issue:`4682`, :pull:`4687`).
+  By `Justus Magin <https://github.com/keewis>`_.
 - Xarray now leverages updates as of cftime version 1.4.1, which enable exact I/O
   roundtripping of ``cftime.datetime`` objects (:pull:`4758`).
   By `Spencer Clark <https://github.com/spencerkclark>`_.
