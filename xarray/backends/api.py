@@ -549,6 +549,13 @@ def open_dataset(
             overwrite_encoded_chunks = backend_kwargs.pop(
                 "overwrite_encoded_chunks", None
             )
+        elif engine == 'imageio':
+            store = backends.ImageioDataStore(filename_or_obj,
+                                              autoclose=autoclose,
+                                              **backend_kwargs)
+        else:
+            raise ValueError('unrecognized engine for open_dataset: %r'
+                             % engine)
 
         opener = _get_backend_cls(engine)
         store = opener(filename_or_obj, **extra_kwargs, **backend_kwargs)

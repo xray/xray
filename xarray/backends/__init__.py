@@ -7,6 +7,7 @@ from .cfgrib_ import CfGribDataStore
 from .common import AbstractDataStore
 from .file_manager import CachingFileManager, DummyFileManager, FileManager
 from .h5netcdf_ import H5NetCDFStore
+from .imageio import ImageioDataStore
 from .memory import InMemoryDataStore
 from .netCDF4_ import NetCDF4DataStore
 from .plugins import list_engines
@@ -22,6 +23,7 @@ __all__ = [
     "CachingFileManager",
     "CfGribDataStore",
     "DummyFileManager",
+    "ImageioDataStore",
     "InMemoryDataStore",
     "NetCDF4DataStore",
     "PydapDataStore",
