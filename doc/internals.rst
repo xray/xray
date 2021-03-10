@@ -184,9 +184,77 @@ Back in an interactive IPython session, we can use these properties:
 
 The intent here is that libraries that extend xarray could add such an accessor
 to implement subclass specific functionality rather than using actual subclasses
-or patching in a large number of domain specific methods. For further reading
-on ways to write new accessors and the philosophy behind the approach, see
-:issue:`1080`.
+or patching in a large number of domain specific methods.
+
+Parametrizing an accessor is possible by defining ``__call__``. For
+example, we could use this to reimplement the API of the
+:py:func:`DataArray.weighted` function:
+
+.. ipython::
+    :okwarning:
+
+    In [1]: @xr.register_dataarray_accessor("weighted")
+       ...: class WeightedAccessor:
+       ...:     def __init__(self, xarray_obj):
+       ...:         self._obj = xarray_obj
+       ...:         self._weights = np.ones_like(xarray_obj) / xarray_obj.size
+       ...:
+       ...:     def __call__(self, weights):
+       ...:         self._weights = weights
+       ...:         return self
+       ...:
+       ...:     def sum(self, *args, **kwargs):
+       ...:         return np.sum(self._obj * self._weights, *args, **kwargs)
+
+    In [2]: da = xr.DataArray(data=np.linspace(1, 2, 10), dims="x")
+       ...: weights = xr.DataArray(
+       ...:     np.array([0.25, 0, 0, 0, 0.25, 0, 0.25, 0, 0, 0.25]),
+       ...:     dims="x",
+       ...: )
+
+    In [3]: da.weighted.sum()
+
+    In [4]: da.weighted(weights).sum()
+
+If we want to require the parameter, the easiest way to do so is using
+a wrapper function:
+
+.. ipython::
+    :okwarning:
+    :okexcept:
+
+    In [1]: class Weighted:
+       ...:     def __init__(self, obj, weights):
+       ...:         self._obj = obj
+       ...:         self._weights = weights
+       ...:
+       ...:     def sum(self, *args, **kwargs):
+       ...:         return np.sum(self._obj * self._weights, *args, **kwargs)
+
+    In [2]: @xr.register_dataarray_accessor("weighted")
+       ...: def weighted(obj):
+       ...:     def wrapped(weights):
+       ...:         return Weighted(obj, weights)
+       ...:     return wrapped
+
+    In [3]: da = xr.DataArray(data=np.linspace(1, 2, 10), dims="x")
+       ...: weights = xr.DataArray(
+       ...:     np.array([0.25, 0, 0, 0, 0.25, 0, 0.25, 0, 0, 0.25]),
+       ...:     dims="x",
+       ...: )
+
+    In [4]: da.weighted.sum()
+
+    In [5]: da.weighted(weights).sum()
+
+.. note::
+
+   Keep in mind, though, that accessors are designed to add new
+   namespaces to the :py:class:`Dataset` and :py:class:`DataArray`
+   objects and should not be used to add methods.
+
+For further reading on ways to write new accessors and the philosophy
+behind the approach, see :issue:`1080`.
 
 To help users keep things straight, please `let us know
 <https://github.com/pydata/xarray/issues>`_ if you plan to write a new accessor
