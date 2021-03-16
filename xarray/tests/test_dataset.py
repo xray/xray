@@ -5787,16 +5787,55 @@ class TestDataset:
 
     def test_pad(self):
         ds = create_test_data(seed=1)
-        padded = ds.pad(dim2=(1, 1), constant_values=42)
+        for width in [(1, 1), 1]:
+            padded = ds.pad(dim2=width, constant_values=42)
 
-        assert padded["dim2"].shape == (11,)
-        assert padded["var1"].shape == (8, 11)
-        assert padded["var2"].shape == (8, 11)
+            assert padded["dim2"].shape == (11,)
+            assert padded["var1"].shape == (8, 11)
+            assert padded["var2"].shape == (8, 11)
+            assert padded["var3"].shape == (10, 8)
+            assert dict(padded.dims) == {"dim1": 8, "dim2": 11, "dim3": 10, "time": 20}
+
+            np.testing.assert_equal(padded["var1"].isel(dim2=[0, -1]).data, 42)
+            np.testing.assert_equal(padded["dim2"][[0, -1]].data, np.nan)
+
+    def test_pad_index(self):
+        ds = create_test_data(seed=1)
+        padded = ds.pad(dim2=([0, 1, 2], []), constant_values=42)
+
+        assert padded["dim2"].shape == (12,)
+        assert padded["var1"].shape == (8, 12)
+        assert padded["var2"].shape == (8, 12)
         assert padded["var3"].shape == (10, 8)
-        assert dict(padded.dims) == {"dim1": 8, "dim2": 11, "dim3": 10, "time": 20}
+        assert dict(padded.dims) == {"dim1": 8, "dim2": 12, "dim3": 10, "time": 20}
+        assert np.nan not in padded["dim2"]
 
-        np.testing.assert_equal(padded["var1"].isel(dim2=[0, -1]).data, 42)
-        np.testing.assert_equal(padded["dim2"][[0, -1]].data, np.nan)
+        padded = ds.pad(dim2=([], [0, 1, 2]), constant_values=42)
+        assert np.nan not in padded["dim2"]
+
+        padded = ds.pad(dim2=([0, 1], [0, 1, 2]), constant_values=42)
+        assert np.nan not in padded["dim2"]
+
+        padded = ds.pad(dim2=([0, 1], [2]), constant_values=42)
+        assert np.nan not in padded["dim2"]
+
+    def test_pad_index_error(self):
+        with pytest.raises(TypeError):
+            ds = create_test_data(seed=1)
+            ds.pad(dim2=(0, [1, 2]))
+
+    def test_pad_index_doc(self):
+        ds = xr.Dataset({"foo": ("x", range(3))}, coords={"x": [0, 1, 2]})
+        padded = ds.pad(x=([-1], [3]))
+        assert np.nan not in padded["x"]
+
+        da = xr.DataArray(
+            [[0, 1, 2, 3], [10, 11, 12, 13]],
+            dims=["x", "y"],
+            coords={"x": [0, 1], "y": [10, 20, 30, 40], "z": ("x", [100, 200])},
+        )
+        padded = da.pad(x=([-2, -1], [2]))
+        assert np.nan not in padded["x"]
 
     def test_astype_attrs(self):
         data = create_test_data(seed=123)

@@ -6528,7 +6528,10 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
 
     def pad(
         self,
-        pad_width: Mapping[Hashable, Union[int, Tuple[int, int]]] = None,
+        pad_width: Mapping[
+            Hashable,
+            Union[int, Tuple[Union[int], Union[int]], Tuple[Sequence, Sequence]],
+        ] = None,
         mode: str = "constant",
         stat_length: Union[
             int, Tuple[int, int], Mapping[Hashable, Tuple[int, int]]
@@ -6554,10 +6557,15 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
 
         Parameters
         ----------
-        pad_width : mapping of hashable to tuple of int
+        pad_width : mapping of hashable to int or tuple of int or Sequence.
             Mapping with the form of {dim: (pad_before, pad_after)}
             describing the number of values padded along each dimension.
             {dim: pad} is a shortcut for pad_before = pad_after = pad
+            Note that having np.nan in IndexVariable loses most of the useful
+            functionalities of xarray. To avoid this problem, sequences,
+            such as lists or np.arrays, can be used for pad_before and pad_after.
+            In this case, these values will be used for an IndexVariable preventing
+            from the loss of functionalities.
         mode : str, default: "constant"
             One of the following string values (taken from numpy docs).
 
@@ -6654,6 +6662,14 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
         Dimensions without coordinates: x
         Data variables:
             foo      (x) float64 nan 0.0 1.0 2.0 3.0 4.0 nan nan
+        >>> ds = xr.Dataset({"foo": ("x", range(3))}, coords={"x": [0, 1, 2]})
+        >>> ds.pad(x=([-1], [3]))
+        <xarray.Dataset>
+        Dimensions:  (x: 5)
+        Coordinates:
+          * x        (x) int64 -1 0 1 2 3
+        Data variables:
+            foo      (x) float64 nan 0.0 1.0 2.0 nan
         """
         pad_width = either_dict_or_kwargs(pad_width, pad_width_kwargs, "pad")
 
@@ -6670,8 +6686,25 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
             coord_pad_options = {}
 
         variables = {}
+
+        # standarize pad_width
+        pad_width_standardized = {}  # type: Dict[Hashable, Tuple[int, int]]
+        for k, v in pad_width.items():
+            if not isinstance(v, int):
+                # if pad_width is a tuple of iterable, we use its length for
+                # pad_width_standardized
+                # mypy does not know the length here and infers Tuple[int, ...]
+                # see https://github.com/python/mypy/issues/7509
+                pad_width_standardized[k] = tuple(  # type: ignore
+                    len(v1) if isinstance(v1, Sequence) else v1 for v1 in v
+                )
+            else:  # just an int
+                pad_width_standardized[k] = (v, v)
+
         for name, var in self.variables.items():
-            var_pad_width = {k: v for k, v in pad_width.items() if k in var.dims}
+            var_pad_width = {
+                k: v for k, v in pad_width_standardized.items() if k in var.dims
+            }
             if not var_pad_width:
                 variables[name] = var
             elif name in self.data_vars:
@@ -6683,6 +6716,23 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
                     end_values=end_values,
                     reflect_type=reflect_type,
                 )
+            elif (
+                name in var_pad_width.keys()  # dimension coordinates
+                and isinstance(pad_width[name], Sequence)
+                and (
+                    isinstance(pad_width[name][0], Sequence)  # type: ignore
+                    or isinstance(pad_width[name][1], Sequence)  # type: ignore
+                )
+            ):
+                pad_start, pad_end = pad_width[name]  # type: ignore
+                if isinstance(pad_start, int) or isinstance(pad_end, int):
+                    # do not allow [Sequence, int] as pad_width
+                    raise TypeError(
+                        "({}, {}) is used for pad_width[{}]. Must be either (int, int) or (Sequence, Sequence).".format(
+                            type(pad_start), type(pad_end), name
+                        )
+                    )
+                variables[name] = var.pad_indexes(pad_start=pad_start, pad_end=pad_end)
             else:
                 variables[name] = var.pad(
                     pad_width=var_pad_width,
