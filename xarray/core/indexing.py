@@ -1,3 +1,4 @@
+import copy
 import enum
 import functools
 import operator
@@ -1478,13 +1479,6 @@ class PandasIndexAdapter(ExplicitlyIndexedNDArrayMixin):
             type(self).__name__, self.array, self.dtype
         )
 
-    def copy(self, deep: bool = True) -> "PandasIndexAdapter":
-        # Not the same as just writing `self.array.copy(deep=deep)`, as
-        # shallow copies of the underlying numpy.ndarrays become deep ones
-        # upon pickling
-        # >>> len(pickle.dumps((self.array, self.array)))
-        # 4000281
-        # >>> len(pickle.dumps((self.array, self.array.copy(deep=False))))
-        # 8000341
-        array = self.array.copy(deep=True) if deep else self.array
-        return PandasIndexAdapter(array, self._dtype)
+    def __deepcopy__(self, memo):
+        # pandas.Index is (mostly) immutable
+        return PandasIndexAdapter(self.array, self._dtype)
