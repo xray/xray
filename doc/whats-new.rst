@@ -536,6 +536,8 @@ Breaking changes
 New Features
 ~~~~~~~~~~~~
 
+- new boolean option `collapse_html` to control if the HTML display for a DataArray
+  is collapsed when first shown. Default: False
 - :py:meth:`~xarray.DataArray.rolling` and :py:meth:`~xarray.Dataset.rolling`
   now accept more than 1 dimension. (:pull:`4219`)
   By `Keisuke Fujii <https://github.com/fujiisoup>`_.

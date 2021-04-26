@@ -6,6 +6,7 @@ from html import escape
 import pkg_resources
 
 from .formatting import inline_variable_array_repr, short_data_repr
+from .options import OPTIONS
 
 STATIC_FILES = ("static/html/icons-svg-inline.html", "static/css/style.css")
 
@@ -188,7 +189,7 @@ def dim_section(obj):
 def array_section(obj):
     # "unique" id to expand/collapse the section
     data_id = "section-" + str(uuid.uuid4())
-    collapsed = "checked"
+    collapsed = "" if OPTIONS["collapse_html"] else "checked"
     variable = getattr(obj, "variable", obj)
     preview = escape(inline_variable_array_repr(variable, max_width=70))
     data_repr = short_data_repr_html(obj)

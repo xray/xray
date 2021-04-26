@@ -6,6 +6,7 @@ CMAP_SEQUENTIAL = "cmap_sequential"
 DISPLAY_MAX_ROWS = "display_max_rows"
 DISPLAY_STYLE = "display_style"
 DISPLAY_WIDTH = "display_width"
+COLLAPSE_HTML = "collapse_html"
 ENABLE_CFTIMEINDEX = "enable_cftimeindex"
 FILE_CACHE_MAXSIZE = "file_cache_maxsize"
 KEEP_ATTRS = "keep_attrs"
@@ -19,6 +20,7 @@ OPTIONS = {
     DISPLAY_MAX_ROWS: 12,
     DISPLAY_STYLE: "html",
     DISPLAY_WIDTH: 80,
+    COLLAPSE_HTML: False,
     ENABLE_CFTIMEINDEX: True,
     FILE_CACHE_MAXSIZE: 128,
     KEEP_ATTRS: "default",
@@ -38,6 +40,7 @@ _VALIDATORS = {
     DISPLAY_MAX_ROWS: _positive_integer,
     DISPLAY_STYLE: _DISPLAY_OPTIONS.__contains__,
     DISPLAY_WIDTH: _positive_integer,
+    COLLAPSE_HTML: lambda value: isinstance(value, bool),
     ENABLE_CFTIMEINDEX: lambda value: isinstance(value, bool),
     FILE_CACHE_MAXSIZE: _positive_integer,
     KEEP_ATTRS: lambda choice: choice in [True, False, "default"],
@@ -108,6 +111,8 @@ class set_options:
       Default: ``'default'``.
     - ``display_style``: display style to use in jupyter for xarray objects.
       Default: ``'text'``. Other options are ``'html'``.
+    - ``collapse_html``: collapse the data part of the html representation.
+      Default: ``False``.
 
 
     You can use ``set_options`` either as a context manager:
