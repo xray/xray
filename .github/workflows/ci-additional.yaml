@@ -9,10 +9,23 @@ on:
   workflow_dispatch: # allows you to trigger manually
 
 jobs:
+  pre-job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v3.4.0
+        with:
+          concurrent_skipping: "same_content"
+          skip_after_successful_duplicate: "false"
+          do_not_skip: '["pull_request", "schedule", "workflow_dispatch"]'
+          paths_ignore: '["**/doc/**"]'
   detect-ci-trigger:
     name: detect ci trigger
+    needs: pre-job
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: ${{ needs.pre-job.outputs.should_skip != 'true' }}
     outputs:
       triggered: ${{ steps.detect-trigger.outputs.trigger-found }}
     steps:
@@ -110,6 +123,8 @@ jobs:
           fail_ci_if_error: false
   doctest:
     name: Doctests
+    needs: pre-job
+    if: ${{ needs.pre-job.outputs.should_skip != 'true' }}
     runs-on: "ubuntu-latest"
     defaults:
       run:

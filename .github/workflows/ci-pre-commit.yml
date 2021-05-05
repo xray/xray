@@ -5,10 +5,26 @@ on:
     branches: "*"
   pull_request:
     branches: "*"
+  workflow_dispatch:
+
 
 jobs:
+  pre-job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v3.4.0
+        with:
+          concurrent_skipping: "same_content"
+          skip_after_successful_duplicate: "false"
+          do_not_skip: '["pull_request", "schedule", "workflow_dispatch"]'
+
   linting:
     name: "pre-commit hooks"
+    needs: pre-job
+    if: ${{ needs.pre-job.outputs.should_skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
