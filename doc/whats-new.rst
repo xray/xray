@@ -231,6 +231,8 @@ Bug fixes
   By `Victor Negîrneac <https://github.com/caenrigen>`_.
 - Don't allow passing ``axis`` to :py:meth:`Dataset.reduce` methods (:issue:`3510`, :pull:`4940`).
   By `Justus Magin <https://github.com/keewis>`_.
+- Convert to IndexVariable or Variable during renaming as appropriate. (:issue:`4107`, :issue:`4417`, :pull:`4108`)
+  By `Deepak Cherian <https://github.com/dcherian>`_.
 - Decode values as signed if attribute `_Unsigned = "false"` (:issue:`4954`)
   By `Tobias Kölling <https://github.com/d70-t>`_.
 - Keep coords attributes when interpolating when the indexer is not a Variable. (:issue:`4239`, :issue:`4839` :pull:`5031`)

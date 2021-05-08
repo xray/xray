@@ -2695,6 +2695,22 @@ class TestDataset:
         with pytest.raises(ValueError):
             original.rename_vars(names_dict_bad)
 
+    def test_rename_to_dim_name(self):
+        # regression test for GH4107
+        coord_1 = xr.DataArray([1, 2], dims=["coord_1"], attrs={"attrs": True})
+        ds = xr.Dataset()
+        ds["a"] = xr.DataArray([1, 0], [coord_1])
+        obj = ds.reset_index("coord_1").rename({"coord_1_": "coord_1"})
+        assert_equal(ds, obj)
+
+        newds = (
+            ds.reset_index("coord_1")
+            .reset_coords("coord_1_")
+            .rename({"coord_1_": "coord_1"})
+        )
+        assert "coord_1" not in newds.data_vars
+        assert_equal(newds, obj)
+
     def test_rename_multiindex(self):
         mindex = pd.MultiIndex.from_tuples(
             [([1, 2]), ([3, 4])], names=["level0", "level1"]
