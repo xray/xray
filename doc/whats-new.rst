@@ -21,7 +21,9 @@ v0.18.1 (unreleased)
 
 New Features
 ~~~~~~~~~~~~
-
+- allow passing ``combine_attrs`` strategy names to the ``keep_attrs`` parameter of
+  :py:func:`apply_ufunc` (:pull:`5041`)
+  By `Justus Magin <https://github.com/keewis>`_.
 
 Breaking changes
 ~~~~~~~~~~~~~~~~
