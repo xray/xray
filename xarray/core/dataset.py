@@ -211,9 +211,9 @@ def calculate_dimensions(variables: Mapping[Hashable, Variable]) -> Dict[Hashabl
 def merge_indexes(
     indexes: Mapping[Hashable, Union[Hashable, Sequence[Hashable]]],
     variables: Mapping[Hashable, Variable],
-    coord_names: Set[Hashable],
+    coord_names: List[Hashable],
     append: bool = False,
-) -> Tuple[Dict[Hashable, Variable], Set[Hashable]]:
+) -> Tuple[Dict[Hashable, Variable], List[Hashable]]:
     """Merge variables into multi-indexes.
 
     Not public API. Used in Dataset and DataArray set_index
@@ -288,18 +288,18 @@ def merge_indexes(
         if any(d in dims_to_replace for d in v.dims):
             new_dims = [dims_to_replace.get(d, d) for d in v.dims]
             new_variables[k] = v._replace(dims=new_dims)
-    new_coord_names = coord_names | set(vars_to_replace)
-    new_coord_names -= set(vars_to_remove)
+    new_coord_names = coord_names + [x for x in vars_to_replace if x not in coord_names]
+    new_coord_names = [x for x in new_coord_names if x not in vars_to_remove]
     return new_variables, new_coord_names
 
 
 def split_indexes(
     dims_or_levels: Union[Hashable, Sequence[Hashable]],
     variables: Mapping[Hashable, Variable],
-    coord_names: Set[Hashable],
+    coord_names: List[Hashable],
     level_coords: Mapping[Hashable, Hashable],
     drop: bool = False,
-) -> Tuple[Dict[Hashable, Variable], Set[Hashable]]:
+) -> Tuple[Dict[Hashable, Variable], List[Hashable]]:
     """Extract (multi-)indexes (levels) as variables.
 
     Not public API. Used in Dataset and DataArray reset_index
@@ -346,7 +346,8 @@ def split_indexes(
         del new_variables[v]
     new_variables.update(vars_to_replace)
     new_variables.update(vars_to_create)
-    new_coord_names = (coord_names | set(vars_to_create)) - set(vars_to_remove)
+    new_coord_names = coord_names + [x for x in vars_to_create if x not in coord_names]
+    new_coord_names = [x for x in new_coord_names if x not in vars_to_remove]
 
     return new_variables, new_coord_names
 
@@ -688,7 +689,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
 
     _attrs: Optional[Dict[Hashable, Any]]
     _cache: Dict[str, Any]
-    _coord_names: Set[Hashable]
+    _coord_names: List[Hashable]
     _dims: Dict[Hashable, int]
     _encoding: Optional[Dict[Hashable, Any]]
     _close: Optional[Callable[[], None]]
@@ -746,7 +747,8 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
         self._close = None
         self._encoding = None
         self._variables = variables
-        self._coord_names = coord_names
+        # TODO: can we remove `sorted` and let it be user-defined?
+        self._coord_names = sorted(coord_names)
         self._dims = dims
         self._indexes = indexes
 
@@ -1084,7 +1086,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
     def _replace(
         self,
         variables: Dict[Hashable, Variable] = None,
-        coord_names: Set[Hashable] = None,
+        coord_names: List[Hashable] = None,
         dims: Dict[Any, int] = None,
         attrs: Union[Dict[Hashable, Any], None, Default] = _default,
         indexes: Union[Dict[Any, pd.Index], None, Default] = _default,
@@ -1134,7 +1136,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
     def _replace_with_new_dims(
         self,
         variables: Dict[Hashable, Variable],
-        coord_names: set = None,
+        coord_names: List = None,
         attrs: Union[Dict[Hashable, Any], None, Default] = _default,
         indexes: Union[Dict[Hashable, pd.Index], None, Default] = _default,
         inplace: bool = False,
@@ -1148,7 +1150,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
     def _replace_vars_and_dims(
         self,
         variables: Dict[Hashable, Variable],
-        coord_names: set = None,
+        coord_names: List = None,
         dims: Dict[Hashable, int] = None,
         attrs: Union[Dict[Hashable, Any], None, Default] = _default,
         inplace: bool = False,
@@ -1327,7 +1329,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
         the all relevant coordinates. Skips all validation.
         """
         variables: Dict[Hashable, Variable] = {}
-        coord_names = set()
+        coord_names = []
         indexes: Dict[Hashable, pd.Index] = {}
 
         for name in names:
@@ -1338,8 +1340,12 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
                     self._variables, name, self._level_coords, self.dims
                 )
                 variables[var_name] = var
-                if ref_name in self._coord_names or ref_name in self.dims:
-                    coord_names.add(var_name)
+                if (
+                    ref_name in self._coord_names
+                    or ref_name in self.dims
+                    and var_name not in coord_names
+                ):
+                    coord_names.append(var_name)
                 if (var_name,) == var.dims:
                     indexes[var_name] = var.to_index()
 
@@ -1356,7 +1362,8 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
 
             if set(self.variables[k].dims) <= needed_dims:
                 variables[k] = self._variables[k]
-                coord_names.add(k)
+                if k not in coord_names:
+                    coord_names.append(k)
                 if k in self.indexes:
                     indexes[k] = self.indexes[k]
 
@@ -1526,7 +1533,8 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
     def __delitem__(self, key: Hashable) -> None:
         """Remove a variable from this dataset."""
         del self._variables[key]
-        self._coord_names.discard(key)
+        if key in self._coord_names:
+            self._coord_names.remove(key)
         if key in self.indexes:
             assert self._indexes is not None
             del self._indexes[key]
@@ -1647,7 +1655,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
             names = list(names)
         self._assert_all_in_dataset(names)
         obj = self.copy()
-        obj._coord_names.update(names)
+        obj._coord_names += names
         return obj
 
     def reset_coords(
@@ -1671,7 +1679,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
         Dataset
         """
         if names is None:
-            names = self._coord_names - set(self.dims)
+            names = [x for x in self._coord_names if x not in self.dims]
         else:
             if isinstance(names, str) or not isinstance(names, Iterable):
                 names = [names]
@@ -1684,7 +1692,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
                     "cannot remove index coordinates with reset_coords: %s" % bad_coords
                 )
         obj = self.copy()
-        obj._coord_names.difference_update(names)
+        obj._coord_names = [x for x in obj._coord_names if x not in names]
         if drop:
             for name in names:
                 del obj._variables[name]
@@ -2266,7 +2274,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
 
             variables[name] = new_var
 
-        coord_names = self._coord_names & variables.keys()
+        coord_names = [x for x in self._coord_names if x in variables.keys()]
         selected = self._replace_with_new_dims(variables, coord_names, indexes)
 
         # Extract coordinates from indexers
@@ -2822,8 +2830,8 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
             fill_value=fill_value,
             sparse=sparse,
         )
-        coord_names = set(self._coord_names)
-        coord_names.update(indexers)
+        coord_names = self._coord_names
+        coord_names += [x for x in indexers if x not in coord_names]
         return self._replace_with_new_dims(variables, coord_names, indexes=indexes)
 
     def interp(
@@ -3359,7 +3367,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
         result_dims = {dims_dict.get(dim, dim) for dim in self.dims}
 
         coord_names = self._coord_names.copy()
-        coord_names.update({dim for dim in dims_dict.values() if dim in self.variables})
+        coord_names += {dim for dim in dims_dict.values() if dim in self.variables}
 
         variables: Dict[Hashable, Variable] = {}
         indexes: Dict[Hashable, pd.Index] = {}
@@ -3468,7 +3476,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
                 # value within the dim dict to the length of the iterable
                 # for later use.
                 variables[k] = xr.IndexVariable((k,), v)
-                coord_names.add(k)
+                coord_names += [k]
                 dim[k] = variables[k].size
             elif isinstance(v, int):
                 pass  # Do nothing if the dimensions value is just an int
@@ -3901,7 +3909,10 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
             variables[name] = IndexVariable(name, lev)
             indexes[name] = lev
 
-        coord_names = set(self._coord_names) - {dim} | set(new_dim_names)
+        coord_names = self._coord_names + [
+            x for x in new_dim_names if x not in self._coord_names
+        ]
+        coord_names.remove(dim)
 
         return self._replace_with_new_dims(
             variables, coord_names=coord_names, indexes=indexes
@@ -4118,6 +4129,10 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
             fill_value=fill_value,
             combine_attrs=combine_attrs,
         )
+        # FIXME: remove
+        assert merge_result._asdict()["coord_names"] == sorted(
+            merge_result._asdict()["coord_names"]
+        )
         return self._replace(**merge_result._asdict())
 
     def _assert_all_in_dataset(
@@ -4160,7 +4175,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
             self._assert_all_in_dataset(names)
 
         variables = {k: v for k, v in self._variables.items() if k not in names}
-        coord_names = {k for k in self._coord_names if k in variables}
+        coord_names = [k for k in self._coord_names if k in variables]
         indexes = {k: v for k, v in self.indexes.items() if k not in names}
         return self._replace_with_new_dims(
             variables, coord_names=coord_names, indexes=indexes
@@ -4870,7 +4885,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
                         **kwargs,
                     )
 
-        coord_names = {k for k in self.coords if k in variables}
+        coord_names = [k for k in self.coords if k in variables]
         indexes = {k: v for k, v in self.indexes.items() if k in variables}
         attrs = self.attrs if keep_attrs else None
         return self._replace_with_new_dims(
