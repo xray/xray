@@ -5,6 +5,7 @@ import pandas as pd
 
 from ..core.alignment import broadcast
 from .facetgrid import _easy_facetgrid
+from .plot import _PlotMethods
 from .utils import (
     _add_colorbar,
     _get_nice_quiver_magnitude,
@@ -595,3 +596,53 @@ def streamplot(ds, x, y, ax, u, v, **kwargs):
 
     # Return .lines so colorbar creation works properly
     return hdl.lines
+
+
+def _attach_to_plot_class(plotfunc):
+    """Set the function to the plot class and add common docstring."""
+    # Build on the original docstring:
+    original_doc = getattr(_PlotMethods, plotfunc.__name__, None)
+    commondoc = original_doc.__doc__
+    if commondoc is not None:
+        doc_warning = (
+            f"This docstring was copied from xr.DataArray.plot.{original_doc.__name__}."
+            " Some inconsistencies may exist."
+        )
+        # Add indentation so it matches the original doc:
+        commondoc = f"\n\n    {doc_warning}\n\n    {commondoc}"
+    else:
+        commondoc = ""
+    plotfunc.__doc__ = (
+        f"    {plotfunc.__doc__}\n\n"
+        "    The y DataArray will be used as base,"
+        "    any other variables are added as coords.\n\n"
+        f"{commondoc}"
+    )
+
+    @functools.wraps(plotfunc)
+    def plotmethod(self, *args, **kwargs):
+        return plotfunc(self._ds, *args, **kwargs)
+
+    # Add to class _PlotMethods
+    setattr(_Dataset_PlotMethods, plotmethod.__name__, plotmethod)
+
+
+def _temp_dataarray(ds, y, extra_coords):
+    """Create a temporary datarray with extra coords."""
+    from ..core.dataarray import DataArray
+
+    # Base coords:
+    coords = dict(ds.coords)
+
+    # Add extra coords to the DataArray:
+    coords.update({v: ds[v] for v in extra_coords})
+
+    return DataArray(ds[y], coords=coords)
+
+
+@_attach_to_plot_class
+def line(ds, x=None, y=None, ax=None, **kwargs):
+    """Line plot Dataset data variables against each other."""
+    da = _temp_dataarray(ds, y, extra_coords=[x])
+
+    return da.plot.line(x=x, ax=ax, **kwargs)
