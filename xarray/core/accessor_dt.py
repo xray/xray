@@ -4,6 +4,7 @@ from distutils.version import LooseVersion
 import numpy as np
 import pandas as pd
 
+from ..coding.times import infer_calendar_name
 from .common import (
     _contains_datetime_like_objects,
     is_np_datetime_like,
@@ -450,6 +451,14 @@ class DatetimeAccessor(Properties):
     is_leap_year = Properties._tslib_field_accessor(
         "is_leap_year", "Boolean indicator if the date belongs to a leap year.", bool
     )
+
+    @property
+    def calendar(self):
+        """The name of the calendar of the dates.
+
+        Only relevant for arrays of cftime objects, returns "proleptic_gregorian" for arrays of numpy objects.
+        """
+        return infer_calendar_name(self._obj.data)
 
 
 class TimedeltaAccessor(Properties):

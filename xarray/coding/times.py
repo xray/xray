@@ -9,7 +9,7 @@ import pandas as pd
 from pandas.errors import OutOfBoundsDatetime
 
 from ..core import indexing
-from ..core.common import contains_cftime_datetimes
+from ..core.common import contains_cftime_datetimes, is_np_datetime_like
 from ..core.formatting import first_n_items, format_timestamp, last_item
 from ..core.variable import Variable
 from .variables import (
@@ -70,6 +70,22 @@ TIME_UNITS = frozenset(
 
 def _is_standard_calendar(calendar):
     return calendar.lower() in _STANDARD_CALENDARS
+
+
+def _is_numpy_compatible_time_range(times):
+    if is_np_datetime_like(times.dtype):
+        return True
+    # Cftime object
+    times = np.asarray(times)
+    tmin = times.min()
+    tmax = times.max()
+    try:
+        convert_time_or_go_back(tmin, pd.Timestamp)
+        convert_time_or_go_back(tmax, pd.Timestamp)
+    except pd.errors.OutOfBoundsDatetime:
+        return False
+    else:
+        return True
 
 
 def _netcdf_to_numpy_timeunit(units):
@@ -374,9 +390,12 @@ def infer_timedelta_units(deltas):
     return units
 
 
-def cftime_to_nptime(times):
+def cftime_to_nptime(times, raise_on_invalid=True):
     """Given an array of cftime.datetime objects, return an array of
-    numpy.datetime64 objects of the same size"""
+    numpy.datetime64 objects of the same size
+
+    If raise_on_invalid is True (default), invalid dates trigger a ValueError.
+    Otherwise, the invalid element is replaced by np.NaT."""
     times = np.asarray(times)
     new = np.empty(times.shape, dtype="M8[ns]")
     for i, t in np.ndenumerate(times):
@@ -389,12 +408,92 @@ def cftime_to_nptime(times):
                 t.year, t.month, t.day, t.hour, t.minute, t.second, t.microsecond
             )
         except ValueError as e:
-            raise ValueError(
-                "Cannot convert date {} to a date in the "
-                "standard calendar.  Reason: {}.".format(t, e)
-            )
+            if raise_on_invalid:
+                raise ValueError(
+                    "Cannot convert date {} to a date in the "
+                    "standard calendar.  Reason: {}.".format(t, e)
+                )
+            else:
+                dt = "NaT"
         new[i] = np.datetime64(dt)
     return new
+
+
+def convert_times(times, date_type, raise_on_invalid=True):
+    """Given an array of datetimes, return the same dates in another cftime or numpy date type.
+
+    Useful to convert between calendars in numpy and cftime or between cftime calendars.
+
+    If raise_on_valid is True (default), invalid dates trigger a ValueError.
+    Otherwise, the invalid element is replaced by np.NaN for cftime types and np.NaT for np.datetime64.
+    """
+    if date_type in (pd.Timestamp, np.datetime64):
+        return cftime_to_nptime(times, raise_on_invalid=raise_on_invalid)
+    new = np.empty(times.shape, dtype="O")
+    if is_np_datetime_like(times.dtype):
+        # Convert datetime64 objects to Timestamps
+        times = pd.DatetimeIndex(times)
+    for i, t in enumerate(times):
+        try:
+            dt = date_type(
+                t.year, t.month, t.day, t.hour, t.minute, t.second, t.microsecond
+            )
+        except ValueError as e:
+            if raise_on_invalid:
+                raise ValueError(
+                    "Cannot convert date {} to a date in the "
+                    "{} calendar.  Reason: {}.".format(
+                        t, date_type(2000, 1, 1).calendar, e
+                    )
+                )
+            else:
+                dt = np.NaN
+
+        new[i] = dt
+    return new
+
+
+def convert_time_or_go_back(date, date_type):
+    """Convert a single date to a new date_type (cftime.datetime or pd.Timestamp).
+
+    If the new date is invalid, it goes back a day and tries again. If it is still
+    invalid, goes back a second day.
+
+    This is meant to convert end-of-month dates into a new calendar.
+    """
+    try:
+        return date_type(
+            date.year,
+            date.month,
+            date.day,
+            date.hour,
+            date.minute,
+            date.second,
+            date.microsecond,
+        )
+    except ValueError:
+        # Day is invalid, happens at the end of months, try again the day before
+        try:
+            return date_type(
+                date.year,
+                date.month,
+                date.day - 1,
+                date.hour,
+                date.minute,
+                date.second,
+                date.microsecond,
+            )
+        except ValueError:
+            # Still invalid, happens for 360_day to non-leap february. Try again 2 days before date.
+            return date_type(
+                date.year,
+                date.month,
+                date.day - 2,
+                date.hour,
+                date.minute,
+                date.second,
+                date.microsecond,
+            )
 
 
 def _cleanup_netcdf_time_units(units):

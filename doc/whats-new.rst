@@ -21,7 +21,8 @@ v0.18.1 (unreleased)
 
 New Features
 ~~~~~~~~~~~~
-
+- Added calendar utilies :py:func:`convert_calendar`, :py:func:`interp_calendar`, :py:func:`date_range`, :py:func:`date_range_like` and :py:attr:`DataArray.dt.calendar`. (:pull:`5233`).
+  By `Pascal Bourgault <https://github.com/aulemahal>`_.
 
 Breaking changes
 ~~~~~~~~~~~~~~~~
