@@ -10,18 +10,22 @@ from numpy import array, nan
 from xarray import DataArray, Dataset, cftime_range, concat
 from xarray.core import dtypes, duck_array_ops
 from xarray.core.duck_array_ops import (
+    allclose_or_equiv,
+    array_equiv,
     array_notnull_equiv,
     concatenate,
     count,
     first,
     gradient,
     last,
+    lazy_array_equiv,
     least_squares,
     mean,
     np_timedelta64_to_float,
     pd_timedelta_to_float,
     push,
     py_timedelta_to_float,
+    same_dtype,
     stack,
     timedelta_to_numeric,
     where,
@@ -214,6 +218,114 @@ class TestArrayNotNullEquiv:
         arr1 = np.array([val1, null, val3, null], dtype=dtype)
         arr2 = np.array([val1, val2, null, null], dtype=dtype)
         assert array_notnull_equiv(arr1, arr2)
+
+
+@pytest.mark.parametrize(
+    "dtype1, dtype2, expected_lazy, expected_eager",
+    [
+        [bool, bool, True, True],
+        [int, int, True, True],
+        [float, float, True, True],
+        [str, str, True, True],
+        [bytes, bytes, True, True],
+        [object, object, None, True],
+        [bool, int, False, False],
+        ["U1", "U2", False, False],
+        ["S1", "S2", False, False],
+        [float, int, False, False],
+        [object, int, None, False],
+        [int, object, None, False],
+        [object, float, None, False],
+        [float, object, None, False],
+    ],
+)
+def test_same_dtype(dtype1, dtype2, expected_lazy, expected_eager):
+
+    ar1 = np.array(1, dtype=dtype1)
+    ar2 = np.array(1, dtype=dtype2)
+
+    # lazy makes no difference when not passing a numpy array
+    assert same_dtype(ar1, ar2, lazy=True) is expected_eager
+    assert same_dtype(ar1, ar2, lazy=False) is expected_eager
+
+    if has_dask:
+
+        import dask.array as da
+
+        ar1 = da.array(1, dtype=dtype1)
+        ar2 = da.array(1, dtype=dtype2)
+
+        # lazy differs for dask arrays with object dtype
+        # because these can change dtype on compute
+        with raise_if_dask_computes():
+            assert same_dtype(ar1, ar2, lazy=True) is expected_lazy
+
+        assert same_dtype(ar1, ar2, lazy=False) is expected_eager
+
+
+@requires_dask
+@pytest.mark.parametrize(
+    "dtype_numpy, dtype_dask, expected",
+    [
+        [float, float, None],
+        [object, object, None],
+        [float, int, False],
+        [object, int, False],
+        [int, object, None],
+    ],
+)
+def test_lazy_array_equiv_dask(dtype_numpy, dtype_dask, expected):
+
+    import dask.array as da
+
+    # one needs to be a numpy array, else "tokenize" says it's the same array
+    arr_numpy = np.array(1, dtype=dtype_numpy)
+
+    arr_dask = da.array(1, dtype=dtype_dask)
+
+    with raise_if_dask_computes():
+        assert lazy_array_equiv(arr_numpy, arr_dask, check_dtype=True) is expected
+        assert lazy_array_equiv(arr_dask, arr_numpy, check_dtype=True) is expected
+
+
+@pytest.mark.parametrize(
+    "dtype1, dtype2, expected",
+    [
+        [float, float, True],
+        [float, int, False],
+        [object, int, False],
+    ],
+)
+def test_equiv_check_dtype(dtype1, dtype2, expected):
+
+    ar1 = np.array(1, dtype=dtype1)
+    ar2 = np.array(1, dtype=dtype2)
+
+    assert allclose_or_equiv(ar1, ar2, check_dtype=True) is expected
+    assert array_equiv(ar1, ar2, check_dtype=True) is expected
+    assert array_notnull_equiv(ar1, ar2, check_dtype=True) is expected
+
+    # np.allclose does not work for object array
+    if dtype1 is not object:
+        assert allclose_or_equiv(ar1, ar2)
+    assert array_equiv(ar1, ar2)
+    assert array_notnull_equiv(ar1, ar2)
+
+    if has_dask:
+        import dask.array as da
+
+        ar1 = da.array(1, dtype=dtype1)
+        ar2 = da.array(1, dtype=dtype2)
+
+        assert allclose_or_equiv(ar1, ar2, check_dtype=True) is expected
+        assert array_equiv(ar1, ar2, check_dtype=True) is expected
+        assert array_notnull_equiv(ar1, ar2, check_dtype=True) is expected
+
+        # np.allclose does not work for object array
+        if dtype1 is not object:
+            assert allclose_or_equiv(ar1, ar2)
+        assert array_equiv(ar1, ar2)
+        assert array_notnull_equiv(ar1, ar2)
 
 
 def construct_dataarray(dim_num, dtype, contains_nan, dask):

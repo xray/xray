@@ -918,6 +918,43 @@ class TestDataset:
         assert not data1.equals(data2)
         assert not data1.identical(data2)
 
+    @pytest.mark.parametrize(
+        "dtype1, dtype2, expected",
+        [
+            [float, float, True],
+            [float, int, False],
+            [object, int, False],
+        ],
+    )
+    def test_equals_check_dtype(self, dtype1, dtype2, expected):
+        data1 = np.array([1], dtype=dtype1)
+        data2 = np.array([1], dtype=dtype2)
+
+        ds1 = Dataset({"data": ("x", data1)})
+        ds2 = Dataset({"data": ("x", data2)})
+
+        assert ds1.equals(ds2, check_dtype=True) is expected
+        assert ds1.identical(ds2, check_dtype=True) is expected
+        assert ds1.broadcast_equals(ds2, check_dtype=True) is expected
+
+        # check the default (check_dtype=False)
+        assert ds1.equals(ds2)
+        assert ds1.identical(ds2)
+        assert ds1.broadcast_equals(ds2)
+
+        # ensure the check also fails if the coords have different dtype
+        ds1 = Dataset(coords={"x": data1})
+        ds2 = Dataset(coords={"x": data2})
+
+        assert ds1.equals(ds2, check_dtype=True) is expected
+        assert ds1.identical(ds2, check_dtype=True) is expected
+        assert ds1.broadcast_equals(ds2, check_dtype=True) is expected
+
+        # check the default (check_dtype=False)
+        assert ds1.equals(ds2)
+        assert ds1.identical(ds2)
+        assert ds1.broadcast_equals(ds2)
+
     def test_attrs(self):
         data = create_test_data(seed=42)
         data.attrs = {"foobar": "baz"}

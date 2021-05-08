@@ -1536,19 +1536,19 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
     # https://github.com/python/mypy/issues/4266
     __hash__ = None  # type: ignore[assignment]
 
-    def _all_compat(self, other: "Dataset", compat_str: str) -> bool:
+    def _all_compat(self, other: "Dataset", compat_str: str, check_dtype: bool) -> bool:
         """Helper function for equals and identical"""
 
         # some stores (e.g., scipy) do not seem to preserve order, so don't
         # require matching order for equality
         def compat(x: Variable, y: Variable) -> bool:
-            return getattr(x, compat_str)(y)
+            return getattr(x, compat_str)(y, check_dtype=check_dtype)
 
         return self._coord_names == other._coord_names and utils.dict_equiv(
             self._variables, other._variables, compat=compat
         )
 
-    def broadcast_equals(self, other: "Dataset") -> bool:
+    def broadcast_equals(self, other: "Dataset", check_dtype: bool = False) -> bool:
         """Two Datasets are broadcast equal if they are equal after
         broadcasting all variables against each other.
 
@@ -1556,17 +1556,23 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
         the other dataset can still be broadcast equal if the the non-scalar
         variable is a constant.
 
+        Parameters
+        ----------
+        check_dtype : bool, default: False
+           Whether to check if the objects' dtypes are identical. Compares the
+           dtypes of all data variables and coords.
+
         See Also
         --------
         Dataset.equals
         Dataset.identical
         """
         try:
-            return self._all_compat(other, "broadcast_equals")
+            return self._all_compat(other, "broadcast_equals", check_dtype=check_dtype)
         except (TypeError, AttributeError):
             return False
 
-    def equals(self, other: "Dataset") -> bool:
+    def equals(self, other: "Dataset", check_dtype: bool = False) -> bool:
         """Two Datasets are equal if they have matching variables and
         coordinates, all of which are equal.
 
@@ -1576,19 +1582,31 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
         This method is necessary because `v1 == v2` for ``Dataset``
         does element-wise comparisons (like numpy.ndarrays).
 
+        Parameters
+        ----------
+        check_dtype : bool, default: False
+           Whether to check if the objects' dtypes are identical. Compares the
+           dtypes of all data variables and coords.
+
         See Also
         --------
         Dataset.broadcast_equals
         Dataset.identical
         """
         try:
-            return self._all_compat(other, "equals")
+            return self._all_compat(other, "equals", check_dtype=check_dtype)
         except (TypeError, AttributeError):
             return False
 
-    def identical(self, other: "Dataset") -> bool:
+    def identical(self, other: "Dataset", check_dtype: bool = False) -> bool:
         """Like equals, but also checks all dataset attributes and the
         attributes on all variables and coordinates.
+
+        Parameters
+        ----------
+        check_dtype : bool, default: False
+           Whether to check if the objects' dtypes are identical. Compares the
+           dtypes of all data variables and coords.
 
         See Also
         --------
@@ -1597,7 +1615,7 @@ class Dataset(DataWithCoords, DatasetArithmetic, Mapping):
         """
         try:
             return utils.dict_equiv(self.attrs, other.attrs) and self._all_compat(
-                other, "identical"
+                other, "identical", check_dtype=check_dtype
             )
         except (TypeError, AttributeError):
             return False
