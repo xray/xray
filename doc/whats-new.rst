@@ -428,6 +428,9 @@ Bug fixes
 - Expand user directory paths (e.g. ``~/``) in :py:func:`open_mfdataset` and
   :py:meth:`Dataset.to_zarr` (:issue:`4783`, :pull:`4795`).
   By `Julien Seguinot <https://github.com/juseg>`_.
+- Add :py:meth:`Dataset.drop_isel` and :py:meth:`DataArray.drop_isel` (:issue:`4658`, :pull:`4819`). By `Daniel Mesejo <https://github.com/mesejo>`_.
+- Facet-scatter plots of datasets use a common colorbar. (:issue:`4975`, :pull:`4978`)
+  By `David Schwörer <https://github.com/dschwoerer>`_.
 - Raise DeprecationWarning when trying to typecast a tuple containing a :py:class:`DataArray`.
   User now prompted to first call `.data` on it (:issue:`4483`).
   By `Chun Ho Chow <https://github.com/chunhochow>`_.
