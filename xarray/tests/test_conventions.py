@@ -382,3 +382,15 @@ class TestCFEncodedDataStore(CFEncodedBase):
     def test_encoding_kwarg_fixed_width_string(self):
         # CFEncodedInMemoryStore doesn't support explicit string encodings.
         pass
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        np.array([["ab", "cdef", b"X"], [1, 2, "c"]], dtype=object),
+        np.array([["x", 1], ["y", 2]], dtype="object"),
+    ],
+)
+def test_infer_dtype_error_on_mixed_types(data):
+    with pytest.raises(ValueError, match="unable to infer dtype on variable"):
+        conventions._infer_dtype(data, "test")
