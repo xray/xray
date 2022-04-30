@@ -474,6 +474,8 @@ def _get_interpolator(method, vectorizeable_only=False, **kwargs):
         "quadratic",
         "cubic",
         "polynomial",
+        "previous",
+        "next",
     ]
     valid_methods = interp1d_methods + [
         "barycentric",
@@ -601,7 +603,7 @@ def interp(var, indexes_coords, method, **kwargs):
         Note that all the coordinates should be Variable objects.
     method : string
         One of {'linear', 'nearest', 'zero', 'slinear', 'quadratic',
-        'cubic'}. For multidimensional interpolation, only
+        'cubic', 'previous', 'next'}. For multidimensional interpolation, only
         {'linear', 'nearest'} can be used.
     **kwargs
         keyword arguments to be passed to scipy.interpolate
