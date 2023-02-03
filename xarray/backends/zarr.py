@@ -787,16 +787,28 @@ def open_zarr(
     dataset : Dataset
         The newly created dataset.
 
+    .. deprecated:: v2023.02.0
+        `open_zarr` will be removed in Xarray v2023.06.0, please use
+        `open_dataset(..., engine='zarr', chunks={})` from now on.
+
     See Also
     --------
     open_dataset
     open_mfdataset
+
+
 
     References
     ----------
     http://zarr.readthedocs.io/
     """
     from xarray.backends.api import open_dataset
+
+    warnings.warn(
+        "open_zarr is Deprecated in favor of open_dataset(..., engine='zarr', chunks={})"
+        "See https://github.com/pydata/xarray/issues/7495 for more information",
+        DeprecationWarning,
+    )
 
     if chunks == "auto":
         try:
