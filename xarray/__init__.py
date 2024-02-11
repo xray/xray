@@ -2,6 +2,7 @@ from importlib.metadata import version as _version
 
 from xarray import testing, tutorial
 from xarray.backends.api import (
+    initialize_zarr,
     load_dataarray,
     load_dataset,
     open_dataarray,
@@ -76,6 +77,7 @@ __all__ = (
     "full_like",
     "get_options",
     "infer_freq",
+    "initialize_zarr",
     "load_dataarray",
     "load_dataset",
     "map_blocks",
