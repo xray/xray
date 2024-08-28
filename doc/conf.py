@@ -225,7 +225,7 @@ pygments_style = "sphinx"
 # -- Options for HTML output ----------------------------------------------
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "sphinx_book_theme"
+html_theme = "pydata_sphinx_theme"
 html_title = ""
 
 html_context = {
@@ -241,15 +241,15 @@ html_context = {
 html_theme_options = dict(
     # analytics_id=''  this is configured in rtfd.io
     # canonical_url="",
-    repository_url="https://github.com/pydata/xarray",
-    repository_branch="main",
+    github_url="https://github.com/pydata/xarray",
+    # repository_branch="main",
     navigation_with_keys=False,  # pydata/pydata-sphinx-theme#1492
-    path_to_docs="doc",
+    # path_to_docs="doc",
     use_edit_page_button=True,
-    use_repository_button=True,
-    use_issues_button=True,
-    home_page_in_toc=False,
-    extra_footer="""<p>Xarray is a fiscally sponsored project of <a href="https://numfocus.org">NumFOCUS</a>,
+    # use_repository_button=True,
+    # use_issues_button=True,
+    # home_page_in_toc=False,
+    footer_center="""<p>Xarray is a fiscally sponsored project of <a href="https://numfocus.org">NumFOCUS</a>,
     a nonprofit dedicated to supporting the open-source scientific computing community.<br>
     Theme by the <a href="https://ebp.jupyterbook.org">Executable Book Project</a></p>""",
     twitter_url="https://twitter.com/xarray_dev",
