@@ -39,6 +39,10 @@ New Features
   iso8601-parser (:pull:`9885`).
   By `Kai Mühlbauer <https://github.com/kmuehlbauer>`_.
 
+- Added new plot method :py:meth:`DataArray.plot.lines` which allows creating line plots efficiently in
+  a similiar manner to :py:meth:`DataArray.plot.scatter`, also available for datasets. (:pull:`7173`)
+  By `Jimmy Westling <https://github.com/illviljan>`_.
+
 Breaking changes
 ~~~~~~~~~~~~~~~~
 - Methods including ``dropna``, ``rank``, ``idxmax``, ``idxmin`` require
