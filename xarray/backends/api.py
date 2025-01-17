@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from collections.abc import (
     Callable,
     Hashable,
@@ -1393,6 +1394,7 @@ def open_mfdataset(
     join: JoinOptions = "outer",
     attrs_file: str | os.PathLike | None = None,
     combine_attrs: CombineAttrsOptions = "override",
+    errors: ErrorOptionsWithWarn = "raise",
     **kwargs,
 ) -> Dataset:
     """Open multiple files as a single dataset.
@@ -1519,7 +1521,11 @@ def open_mfdataset(
 
         If a callable, it must expect a sequence of ``attrs`` dicts and a context object
         as its only parameters.
-    **kwargs : optional
+    errors : {'ignore', 'raise', 'warn'}, default 'raise'
+        - If 'raise', then invalid dataset will raise an exception.
+        - If 'ignore', then invalid dataset will be ignored.
+        - If 'warn', then a warning will be issued for each invalid dataset.
+   **kwargs : optional
         Additional arguments passed on to :py:func:`xarray.open_dataset`. For an
         overview of some of the possible options, see the documentation of
         :py:func:`xarray.open_dataset`
@@ -1611,7 +1617,27 @@ def open_mfdataset(
         open_ = open_dataset
         getattr_ = getattr
 
-    datasets = [open_(p, **open_kwargs) for p in paths1d]
+    if errors in ("raise", "warn", "ignore"):
+        datasets = []
+        for p in paths1d:
+            try:
+                ds = open_(p, **open_kwargs)
+                datasets.append(ds)
+            except Exception:
+                if errors == "raise":
+                    raise
+                elif errors == "ignore":
+                    warnings.warn(
+                        f"Could not open {p}. Ignoring.", UserWarning, stacklevel=2
+                    )
+                    continue
+                else:
+                    continue
+    else:
+        raise ValueError(
+            f"{errors} is an invalid option for the keyword argument ``errors``"
+        )
+
     closers = [getattr_(ds, "_close") for ds in datasets]
     if preprocess is not None:
         datasets = [preprocess(ds) for ds in datasets]
