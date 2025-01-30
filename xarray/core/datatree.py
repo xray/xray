@@ -12,13 +12,13 @@ from collections.abc import (
     Mapping,
 )
 from html import escape
-from typing import TYPE_CHECKING, Any, Literal, NoReturn, Union, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, Union, overload
 
 from xarray.core import utils
 from xarray.core._aggregations import DataTreeAggregations
 from xarray.core._typed_ops import DataTreeOpsMixin
 from xarray.core.alignment import align
-from xarray.core.common import TreeAttrAccessMixin, get_chunksizes
+from xarray.core.common import AccessorMixin, TreeAttrAccessMixin, get_chunksizes
 from xarray.core.coordinates import Coordinates, DataTreeCoordinates
 from xarray.core.dataarray import DataArray
 from xarray.core.dataset import Dataset, DataVariables
@@ -419,6 +419,7 @@ class DataTree(
     NamedNode["DataTree"],
     DataTreeAggregations,
     DataTreeOpsMixin,
+    AccessorMixin,
     TreeAttrAccessMixin,
     Mapping[str, "DataArray | DataTree"],
 ):
@@ -455,6 +456,7 @@ class DataTree(
     _attrs: dict[Hashable, Any] | None
     _encoding: dict[Hashable, Any] | None
     _close: Callable[[], None] | None
+    _accessors: ClassVar[set[str]] = set()
 
     __slots__ = (
         "_attrs",

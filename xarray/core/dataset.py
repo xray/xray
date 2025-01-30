@@ -24,7 +24,7 @@ from numbers import Number
 from operator import methodcaller
 from os import PathLike
 from types import EllipsisType
-from typing import IO, TYPE_CHECKING, Any, Generic, Literal, cast, overload
+from typing import IO, TYPE_CHECKING, Any, ClassVar, Generic, Literal, cast, overload
 
 import numpy as np
 from pandas.api.types import is_extension_array_dtype
@@ -57,6 +57,7 @@ from xarray.core.alignment import (
 from xarray.core.arithmetic import DatasetArithmetic
 from xarray.core.array_api_compat import to_like_array
 from xarray.core.common import (
+    AccessorMixin,
     DataWithCoords,
     _contains_datetime_like_objects,
     get_chunksizes,
@@ -550,6 +551,7 @@ class Dataset(
     DataWithCoords,
     DatasetAggregations,
     DatasetArithmetic,
+    AccessorMixin,
     Mapping[Hashable, "DataArray"],
 ):
     """A multi-dimensional, in memory, array database.
@@ -709,6 +711,7 @@ class Dataset(
     _close: Callable[[], None] | None
     _indexes: dict[Hashable, Index]
     _variables: dict[Hashable, Variable]
+    _accessors: ClassVar[set[str]] = set()
 
     __slots__ = (
         "__weakref__",

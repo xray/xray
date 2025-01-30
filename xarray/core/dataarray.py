@@ -16,6 +16,7 @@ from types import EllipsisType
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Generic,
     Literal,
     NoReturn,
@@ -38,7 +39,12 @@ from xarray.core.alignment import (
     align,
 )
 from xarray.core.arithmetic import DataArrayArithmetic
-from xarray.core.common import AbstractArray, DataWithCoords, get_chunksizes
+from xarray.core.common import (
+    AbstractArray,
+    AccessorMixin,
+    DataWithCoords,
+    get_chunksizes,
+)
 from xarray.core.computation import unify_chunks
 from xarray.core.coordinates import (
     Coordinates,
@@ -281,6 +287,7 @@ class DataArray(
     DataWithCoords,
     DataArrayArithmetic,
     DataArrayAggregations,
+    AccessorMixin,
 ):
     """N-dimensional array with labeled coordinates and dimensions.
 
@@ -421,6 +428,7 @@ class DataArray(
     _indexes: dict[Hashable, Index]
     _name: Hashable | None
     _variable: Variable
+    _accessors: ClassVar[set[str]] = set()
 
     __slots__ = (
         "__weakref__",
