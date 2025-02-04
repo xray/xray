@@ -22,6 +22,14 @@ v2025.02.0 (unreleased)
 New Features
 ~~~~~~~~~~~~
 
+- It is now possible to provide custom, multi-coordinate Xarray indexes that can
+  be compared or aligned together regardless of the order of their coordinates.
+  Two "alignable" index objects must still be of the same type and have the same
+  set of coordinate names and dimensions. There is no change for
+  ``PandasMultiIndex`` objects, though: they can be aligned only if their level
+  names and order match (:pull:`8111`).
+  By `Benoît Bovy <https://github.com/benbovy>`_.
+
 
 Breaking changes
 ~~~~~~~~~~~~~~~~
