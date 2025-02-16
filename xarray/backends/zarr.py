@@ -375,6 +375,11 @@ def _get_zarr_dims_and_attrs(zarr_obj, dimension_key, try_nczarr):
         pass
     else:
         attributes = dict(zarr_obj.attrs)
+        if len(zarr_obj.shape) != len(dimensions):
+            raise KeyError(
+                "Zarr object is missing the `dimension_names` metadata which is "
+                "required for xarray to determine variable dimensions."
+            )
         return dimensions, attributes
 
     # Zarr arrays do not have dimensions. To get around this problem, we add
@@ -393,7 +398,7 @@ def _get_zarr_dims_and_attrs(zarr_obj, dimension_key, try_nczarr):
 
         # NCZarr defines dimensions through metadata in .zarray
         zarray_path = os.path.join(zarr_obj.path, ".zarray")
-        zarray = json.loads(zarr_obj.store[zarray_path])
+        zarray = json.loads(zarr_obj.store.get(zarray_path))
         try:
             # NCZarr uses Fully Qualified Names
             dimensions = [
